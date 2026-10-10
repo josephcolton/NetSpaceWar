@@ -33,12 +33,20 @@ void chandle_msg_loginack(int mysocket, void *packet, struct sockaddr_in server_
 
   // Decide if the loginack is useful
   if (status == STATUS_INUSE) {
-    printf("Username is already being used!\n");
+    snprintf(clientStatusMessage, LEN, "The name %s is already taken", clientUsername);
+    printf("%s\n", clientStatusMessage);
     clientAlive = 0;
     return;
   }
   if (status == STATUS_INVALID) {
-    printf("Username is invalid!\n");
+    snprintf(clientStatusMessage, LEN, "The server rejected the name %s", clientUsername);
+    printf("%s\n", clientStatusMessage);
+    clientAlive = 0;
+    return;
+  }
+  if (status == STATUS_FULL) {
+    snprintf(clientStatusMessage, LEN, "The server is full");
+    printf("%s\n", clientStatusMessage);
     clientAlive = 0;
     return;
   }
@@ -550,3 +558,95 @@ void csend_msg_clientupdate(int mysocket, struct sockaddr_in server_addr, action
   }
 }
 
+
+/* Connection helpers shared by the game client and the AI */
+double clientLastPacketTime = 0.0;
+static double clientLastLoginTime = 0.0;
+
+int clientOpenSocket(const char *hostname, int port, struct sockaddr_in *server_addr) {
+  int mysocket;
+
+  if (netInitialize() != 0) {
+    snprintf(clientStatusMessage, LEN, "Unable to start networking");
+    return -1;
+  }
+
+  memset(server_addr, 0, sizeof(*server_addr));
+  server_addr->sin_family = AF_INET;
+  server_addr->sin_port = htons(port);
+  if (netResolveHost(hostname, &server_addr->sin_addr) != 0) {
+    snprintf(clientStatusMessage, LEN, "Unable to find the server %s", hostname);
+    return -1;
+  }
+  if (DEBUG) printf("Server IP Address: %s port %d\n", inet_ntoa(server_addr->sin_addr), port);
+
+  mysocket = (int)socket(AF_INET, SOCK_DGRAM, 0);
+  if (mysocket < 0) {
+    snprintf(clientStatusMessage, LEN, "Unable to create a socket: %d", netLastError());
+    return -1;
+  }
+  netIgnoreConnReset(mysocket);
+
+  // Starts the timeouts that clientConnectionProblem() checks
+  clientLastPacketTime = platformNow();
+  clientLastLoginTime = 0.0;
+  return mysocket;
+}
+
+message_t clientReceive(int mysocket) {
+  int status;
+  void *packet;
+  message_t mtype;
+  struct sockaddr_in server_addr;
+  socklen_t addrlen = sizeof(server_addr);
+
+  packet = calloc(1, MAX_PACKET);
+  memset(&server_addr, 0, sizeof(server_addr));
+  status = recvfrom(mysocket, packet, MAX_PACKET, 0, (struct sockaddr *)&server_addr, &addrlen);
+
+  // Ignore failed reads and packets too short to have a message type
+  if (status < (int)sizeof(message_t)) {
+    free(packet);
+    return MSG_NONE;
+  }
+  clientLastPacketTime = platformNow();
+
+  // The handler must gather everything it needs before the packet is freed
+  mtype = ((struct msg_basic *)packet)->mtype;
+  if (mtype == MSG_LOGINACK)       chandle_msg_loginack(mysocket, packet, server_addr);
+  if (mtype == MSG_LOGOUTACK)      chandle_msg_logoutack(mysocket, packet, server_addr);
+  if (mtype == MSG_STATICOBJS)     chandle_msg_staticobjs(mysocket, packet, server_addr);
+  if (mtype == MSG_CLIENTINFO)     chandle_msg_clientinfo(mysocket, packet, server_addr);
+  if (mtype == MSG_UPDATEPLAYERS)  chandle_msg_updateplayers(mysocket, packet, server_addr);
+  if (mtype == MSG_UPDATEMISSILES) chandle_msg_updatemissiles(mysocket, packet, server_addr);
+  if (mtype == MSG_EXPLOSION)      chandle_msg_explosion(mysocket, packet, server_addr);
+  if (mtype == MSG_CLIENTLIST)     chandle_msg_clientlist(mysocket, packet, server_addr);
+  if (mtype == MSG_SCOREBOARD)     chandle_msg_scoreboard(mysocket, packet, server_addr);
+  if (mtype == MSG_DELETEOBJ)      chandle_msg_deleteobj(mysocket, packet, server_addr);
+
+  free(packet);
+  return mtype;
+}
+
+void clientRetryLogin(int mysocket, struct sockaddr_in server_addr) {
+  // UDP can lose the login or its reply, and the server may still be
+  // starting up, so keep asking until we have an object ID
+  double now = platformNow();
+  if (clientObjectID != 0) return;
+  if (now - clientLastLoginTime < LOGIN_RETRY) return;
+  csend_msg_login(mysocket, server_addr, clientUsername);
+  clientLastLoginTime = now;
+}
+
+int clientConnectionProblem(double startTime) {
+  double now = platformNow();
+  if (clientObjectID == 0 && now - startTime > CONNECT_TIMEOUT) {
+    if (clientStatusMessage[0] == 0) snprintf(clientStatusMessage, LEN, "No answer from the server");
+    return 1;
+  }
+  if (clientObjectID != 0 && now - clientLastPacketTime > SERVER_SILENCE) {
+    snprintf(clientStatusMessage, LEN, "Lost connection to the server");
+    return 1;
+  }
+  return 0;
+}

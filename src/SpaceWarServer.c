@@ -60,11 +60,8 @@ void handle_socket(int mysocket) {
 }
 
 int main(int argc, char **argv) {
-  // Character array versions of server hostname and ip address
-  char server_name[LEN];
-  char server_ipaddr[LEN];
-  // Get host by name return data
-  struct hostent *lookup;
+  // Address to listen on
+  struct in_addr listen_addr;
   // Server listen port number
   int server_port;
   // Collect various return values
@@ -79,26 +76,22 @@ int main(int argc, char **argv) {
   fd_set readfds; // file descriptor set
 
   if (argc != 3) {
-    printf("Usage:\n\t%s hostname port\n\n", argv[0]);
+    printf("Usage:\n\t%s address port\n\nUse 0.0.0.0 as the address to accept players on every network interface.\n\n", argv[0]);
     return 0;
   }
 
-  // Get the servername and ip address
-  strcpy(server_name, argv[1]);
   // Start the socket library (needed on Windows before any network call)
   if (netInitialize() != 0) {
     printf("Unable to initialize networking\n");
     exit(1);
   }
-  lookup = gethostbyname(server_name);
-  if (lookup == NULL) {
-    printf("gethostbyname(%s) failed\n", server_name);
+
+  // Find the address to listen on; 0.0.0.0 listens on every interface
+  if (netResolveHost(argv[1], &listen_addr) != 0) {
+    printf("Unable to look up %s\n", argv[1]);
     exit(1);
-  } else {
-    // printf("Server: %s\n", lookup->h_name);
-    strcpy(server_ipaddr, inet_ntoa(*(struct in_addr*)lookup->h_addr));
-    if (DEBUG) printf("IP Address: %s\n", server_ipaddr);
   }
+  if (DEBUG) printf("IP Address: %s\n", inet_ntoa(listen_addr));
 
   // Get the server port number
   server_port = atoi(argv[2]);
@@ -109,8 +102,8 @@ int main(int argc, char **argv) {
   serverSocket = socket (AF_INET, SOCK_DGRAM, 0);
   // mysocket socket id will be negative on error
   if (serverSocket < 0) {
-    printf("mysocket: socket creation failed: %d", netLastError());
-    exit(0);
+    printf("mysocket: socket creation failed: %d\n", netLastError());
+    exit(1);
   }
   netIgnoreConnReset(serverSocket);
 
@@ -120,7 +113,7 @@ int main(int argc, char **argv) {
   memset(&mysocket_addr, 0, sizeof(mysocket_addr));
   // Initialize the data in mysocket_addr
   mysocket_addr.sin_family = AF_INET;
-  mysocket_addr.sin_addr.s_addr = inet_addr(server_ipaddr);
+  mysocket_addr.sin_addr = listen_addr;
   mysocket_addr.sin_port = htons(server_port);
   // Bind the socket to the address
   status = bind(serverSocket,
@@ -128,8 +121,9 @@ int main(int argc, char **argv) {
                 sizeof(mysocket_addr));
   // Report if we have an error
   if (status < 0) {
+    // Usually another program (or server) already has the port
     printf("mysocket: bind failed: %d\n", netLastError());
-    exit(0);
+    exit(1);
   }
 
   // Initialize the server

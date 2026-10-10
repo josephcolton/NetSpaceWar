@@ -8,6 +8,7 @@ struct dataNodeClients *clientNode;
 struct dataNodeShips *clientShip;
 char clientUsername[USERNAME_MAX];
 time_t clientCheckin;
+char clientStatusMessage[LEN];
 int cdataCountClients;
 int cdataCountExplosions;
 int cdataCountShips;
@@ -23,8 +24,16 @@ struct dataNodePlanets *cdataArrayPlanets[MAX_COUNT_PLANETS];
 void cdataInitialize() {
   int i;
 
+  // Free objects left over from a previous game
+  for (i=0; i < MAX_COUNT_CLIENTS; i++) free(cdataArrayClients[i]);
+  for (i=0; i < MAX_COUNT_EXPLOSIONS; i++) free(cdataArrayExplosions[i]);
+  for (i=0; i < MAX_COUNT_SHIPS; i++) free(cdataArrayShips[i]);
+  for (i=0; i < MAX_COUNT_MISSILES; i++) free(cdataArrayMissiles[i]);
+  for (i=0; i < MAX_COUNT_PLANETS; i++) free(cdataArrayPlanets[i]);
+
   // Client Information
   clientObjectID = 0;
+  clientStatusMessage[0] = 0;
   clientNode = NULL;
   clientUsername[0] = 0;
   clientAlive = 1;

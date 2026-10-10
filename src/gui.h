@@ -2,10 +2,13 @@
 #define GUI_H
 
 #include <math.h>
+#include <SDL3/SDL.h>
 #include "global.h"
 #include "cdata.h"
 
-
+// Everything is drawn at this size and scaled to fit the window
+#define GUI_SCREEN_W 640
+#define GUI_SCREEN_H 480
 
 void gui_update_display();
 
@@ -17,19 +20,34 @@ bit 0:
 bit 1:
 	Player tried to hyperspace. see above for questions.
 bit 2:
-	Player tried to quit.
+	Player pressed Escape to leave the game.
 bit 3:
+	Player closed the window (P_GUI_FLAG_CLOSE).
 
 
 This function will return 0 in most cases.
 
-This function will return -1 if there was an non-fatal error (such as clock wraparound). This return value means that the 
+This function will return -1 if there was an non-fatal error (such as clock wraparound). This return value means that the
 information in angle_change, accel_amount, energy_to_shields, and flags should be discarded.
 
 If there is a failure initializing SDL then this function will not return, since it calls gui_init_sdl() which calls exit(1) on an error.
 
 */
 
+// Open the window. Safe to call more than once.
+void gui_init_sdl();
+SDL_Window *gui_get_window();
+SDL_Renderer *gui_get_renderer();
 
+/* Screens and text for menus. Coordinates are in GUI_SCREEN_W x GUI_SCREEN_H
+   units; scale multiplies the 8x8 pixel font. Colors are 0xRRGGBB. */
+void gui_draw_backdrop();  // Clear to space with slowly drifting stars
+void gui_text(float x, float y, float scale, int color, const char *text);
+void gui_text_centered(float y, float scale, int color, const char *text);
+float gui_text_width(float scale, const char *text);
+void gui_fill_rect(float x, float y, float w, float h, int color);
+void gui_outline_rect(float x, float y, float w, float h, int color);
+// Draw a full-screen message (title and an optional detail line) and show it
+void gui_draw_status(const char *title, const char *detail);
 
 #endif

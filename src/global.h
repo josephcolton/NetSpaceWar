@@ -28,7 +28,9 @@
 #define DEBUG 1
 
 /* Global variables for messages */
-#define CONNECT_TIMEOUT  2
+#define CONNECT_TIMEOUT  5 // Seconds a client waits to log in
+#define LOGIN_RETRY      0.5 // Seconds between login attempts
+#define SERVER_SILENCE   5 // Seconds without packets before a client gives up on the server
 #define SW_FALSE         0
 #define SW_TRUE          1
 #define MTU              1500
@@ -70,6 +72,7 @@
 #define STATUS_OKAY    0
 #define STATUS_INUSE   1
 #define STATUS_INVALID 2
+#define STATUS_FULL    3
 
 /* Request Data Types */
 #define DATA_STATICOBJS 0
@@ -149,7 +152,8 @@
 
 #define P_GUI_FLAG_FIRE    1
 #define P_GUI_FLAG_HYPER   2
-#define P_GUI_FLAG_QUIT    4
+#define P_GUI_FLAG_QUIT    4 // Escape: leave the game
+#define P_GUI_FLAG_CLOSE   8 // The window was closed
 
 #define FULLSCREEN         0
 #define UGLY_MISSILE_DRAW_POS_FIX

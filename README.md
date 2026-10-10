@@ -14,18 +14,20 @@ This builds three programs in `build/`:
 
 | Program | What it is | Needs |
 |---|---|---|
+| `NetSpaceWar` | The game: menus and the game window | SDL3 (downloaded automatically) |
 | `SpaceWarServer` | Game server | Nothing beyond a C compiler |
 | `SpaceWarAI` | Computer-controlled player, no window | Nothing beyond a C compiler |
-| `SpaceWarClient` | The game window for human players | SDL3 (downloaded automatically) |
 
-If SDL3 isn't installed, CMake downloads it and links it into the client, so players don't need to install anything. Building SDL3 on Linux needs the X11 and Wayland development headers. On Debian/Ubuntu:
+Keep all three in the same folder: the game starts the server and AI bots from its own folder when you host.
+
+If SDL3 isn't installed, CMake downloads it and links it into the game, so players don't need to install anything. Building SDL3 on Linux needs the X11 and Wayland development headers. On Debian/Ubuntu:
 
 ```sh
 sudo apt install build-essential cmake libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
     libxi-dev libxss-dev libxkbcommon-dev libwayland-dev libegl1-mesa-dev
 ```
 
-To build only the server and AI, configure with `-DNSW_BUILD_CLIENT=OFF`.
+To build only the server and AI (for example on a headless machine), configure with `-DNSW_BUILD_CLIENT=OFF`.
 
 ### Windows
 
@@ -42,21 +44,21 @@ Building natively on Windows with MSVC should also work through CMake, but it ha
 
 ## Playing
 
-Start a server, then connect clients and bots to it (from `build/`):
+Run `NetSpaceWar` (on Windows, double-click `NetSpaceWar.exe`).
+
+- **Host Game** starts a game on your computer. Choose your name, a port, and how many AI bots to add (up to 4; a game holds 5 ships). The screen shows the address other players can use to join. On Windows, allow the firewall prompt so they can reach you.
+- **Join Game** connects to someone else's game by address and port.
+
+Press Escape during a game to return to the menu. Your choices are remembered for next time.
+
+### From the command line
+
+The programs also run on their own, for example to keep a dedicated server running (from `build/`):
 
 ```sh
-./SpaceWarServer <hostname> <port>
-./SpaceWarClient <hostname> <port> <username>
-./SpaceWarAI     <hostname> <port> <username>
-```
-
-For example, a local game against two bots:
-
-```sh
-./SpaceWarServer localhost 27960 &
-./SpaceWarAI localhost 27960 bot1 &
-./SpaceWarAI localhost 27960 bot2 &
-./SpaceWarClient localhost 27960 player
+./SpaceWarServer 0.0.0.0 27960                 # listen on every network interface
+./SpaceWarAI     <server> <port> <name>         # add a bot
+./NetSpaceWar    <server> <port> <name>         # join directly, skipping the menu
 ```
 
 The AI hunts the nearest ship, leads its shots, steers clear of planets, and moves power between shields and energy. It plays under the same turn, thrust and fire limits as a human.
@@ -71,7 +73,7 @@ The AI hunts the nearest ship, leads its shots, steers clear of planets, and mov
 | Tab | Hyperjump (also respawns after you die) |
 | Z | Move energy to shields |
 | X | Move shields to energy |
-| Escape | Quit |
+| Escape | Leave the game |
 
 The window can be resized; the game scales to fit.
 

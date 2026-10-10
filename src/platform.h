@@ -28,9 +28,20 @@
   #include <unistd.h>
 #endif
 
-// Start up the socket library. Call once before creating any socket.
-// Returns 0 on success.
+// Start up the socket library before creating any socket. Safe to call
+// more than once. Returns 0 on success.
 int netInitialize();
+
+// Look up a host name or dotted IP address ("0.0.0.0" means any interface).
+// Returns 0 on success.
+int netResolveHost(const char *hostname, struct in_addr *addr);
+
+// Close a socket
+void netCloseSocket(int mysocket);
+
+// Best guess at this machine's LAN address, for telling other players where
+// to connect. Writes a dotted IP into buf, or "localhost" if there is none.
+void netLocalAddress(char *buf, int buflen);
 
 // Error code of the last failed socket call (errno, or WSAGetLastError())
 int netLastError();

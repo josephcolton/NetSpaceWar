@@ -10,6 +10,8 @@ extern struct dataNodeClients *clientNode;
 extern struct dataNodeShips *clientShip;
 extern char clientUsername[USERNAME_MAX];
 extern time_t clientCheckin;
+// Why the client stopped (login refused, server unreachable...), for the player
+extern char clientStatusMessage[LEN];
 
 // Variables to keep track of the number of each object
 extern int cdataCountClients;

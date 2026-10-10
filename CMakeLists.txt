@@ -31,7 +31,7 @@ add_executable(SpaceWarServer src/SpaceWarServer.c src/server.c src/sdata.c src/
 # AI client: headless, no external dependencies
 add_executable(SpaceWarAI src/SpaceWarAI.c src/ai.c src/client.c src/cdata.c src/platform.c)
 
-# Human client: SDL3. Uses an installed SDL3 if there is one, otherwise
+# The game (menu + client): SDL3. Uses an installed SDL3 if there is one, otherwise
 # downloads it and links it statically so players need nothing installed.
 if(NSW_BUILD_CLIENT)
   find_package(SDL3 CONFIG QUIET)
@@ -42,19 +42,25 @@ if(NSW_BUILD_CLIENT)
     set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(SDL3
       URL https://github.com/libsdl-org/SDL/releases/download/release-3.4.16/SDL3-3.4.16.tar.gz
+      DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     )
     FetchContent_MakeAvailable(SDL3)
   endif()
 
   if(TARGET SDL3::SDL3)
-    add_executable(SpaceWarClient src/SpaceWarClient.c src/client.c src/cdata.c src/gui.c src/platform.c)
-    target_link_libraries(SpaceWarClient PRIVATE SDL3::SDL3)
+    add_executable(NetSpaceWar src/NetSpaceWar.c src/launcher.c src/game.c src/client.c src/cdata.c
+                   src/gui.c src/platform.c)
+    target_link_libraries(NetSpaceWar PRIVATE SDL3::SDL3)
+    # A windowed program on Windows: no console window when double-clicked
+    set_target_properties(NetSpaceWar PROPERTIES WIN32_EXECUTABLE TRUE)
+    # The menu starts the server and bots from the game's own folder
+    add_dependencies(NetSpaceWar SpaceWarServer SpaceWarAI)
   else()
-    message(WARNING "SDL3 not found and NSW_FETCH_SDL is OFF: skipping SpaceWarClient")
+    message(WARNING "SDL3 not found and NSW_FETCH_SDL is OFF: skipping NetSpaceWar")
   endif()
 endif()
 
-foreach(target SpaceWarServer SpaceWarAI SpaceWarClient)
+foreach(target SpaceWarServer SpaceWarAI NetSpaceWar)
   if(TARGET ${target})
     if(MATH_LIB)
       target_link_libraries(${target} PRIVATE ${MATH_LIB})

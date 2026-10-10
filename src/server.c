@@ -69,6 +69,13 @@ void shandle_msg_login(int mysocket, void *packet, struct sockaddr_in client_add
   // Verify that the username does not exist
   objectID = sdataGetClientIDbyUsername(username);
 
+  // A repeat login from the same address means our earlier loginack was
+  // lost (clients resend until they hear back), so just acknowledge again
+  if (objectID > 0 && objectID == sdataGetClientIDbyAddress(client_addr)) {
+    ssend_msg_loginack(mysocket, client_addr, STATUS_OKAY, objectID);
+    return;
+  }
+
   // If the user does exist, we will return an error message and quit
   if (objectID > 0) {
     // The user already exists, send error reply with the objectID
@@ -85,7 +92,10 @@ void shandle_msg_login(int mysocket, void *packet, struct sockaddr_in client_add
   if (DEBUG) printf("    Assigning objectID = %d\n", objectID);
 
   // Create the client node
-  sdataCreateClient(username, objectID, client_addr);
+  if (!sdataCreateClient(username, objectID, client_addr)) {
+    ssend_msg_loginack(mysocket, client_addr, STATUS_FULL, 0);
+    return;
+  }
 
   // Create a ship to go with the client
   xcoord = randRange(SPACE_MIN_XCOORD, SPACE_MAX_XCOORD);

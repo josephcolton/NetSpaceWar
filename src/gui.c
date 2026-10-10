@@ -1,4 +1,3 @@
-#include <SDL3/SDL.h>
 #include <math.h>
 #include <time.h>
 #include <stdio.h>
@@ -16,10 +15,6 @@ typedef struct {
   int x, y, w, h;
 } GuiArea;
 
-#define GUI_SCREEN_W 640
-#define GUI_SCREEN_H 480
-
-void gui_init_sdl();
 void gui_draw_ship(GuiArea *buffer, double rel_x, double rel_y, double angle, int eglow, int color);
 void gui_draw_missile(GuiArea *buffer, double rel_x, double rel_y, double angle);
 void gui_draw_hud(GuiArea *buffer, int shield, int energy);
@@ -334,7 +329,7 @@ int gui_get_input(double *angle_change, double *accel_amount, int *energy_to_shi
 	*accel_amount=0;
 	*energy_to_shields=0;
 	*flags=0;
-	if (quit_requested) *flags|=P_GUI_FLAG_QUIT;
+	if (quit_requested) *flags|=P_GUI_FLAG_CLOSE;
 	if (time_diff<=0) // No time has passed, so no movement to report.
 	{
 		return quit_requested ? 0 : -1;
@@ -418,6 +413,9 @@ int gui_get_input(double *angle_change, double *accel_amount, int *energy_to_shi
 void gui_init_sdl()
 {
 	SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE;
+
+	if (gui_renderer != NULL) return;
+	initalized_sdl=1;
 
 	if (FULLSCREEN) flags |= SDL_WINDOW_FULLSCREEN;
 
@@ -812,4 +810,59 @@ void gui_draw_stars(GuiArea *buffer, double mv_x, double mv_y) {
     gui_putpixel(buffer, stars[i][0], stars[i][1], gui_makecol(255,255,255));
     //gui_line(buffer,stars[i][0],stars[i][1],320,240,gui_makecol(255,255,255));
   }
+}
+
+
+SDL_Window *gui_get_window() {
+  gui_init_sdl();
+  return gui_window;
+}
+
+SDL_Renderer *gui_get_renderer() {
+  gui_init_sdl();
+  return gui_renderer;
+}
+
+void gui_draw_backdrop() {
+  gui_init_sdl();
+  SDL_SetRenderDrawColor(gui_renderer, 0, 0, 0, 255);
+  SDL_RenderClear(gui_renderer);
+  // Pretend the player is drifting so the stars move
+  gui_draw_stars(scr_buff, 0.04, 0.015);
+}
+
+void gui_text(float x, float y, float scale, int color, const char *text) {
+  gui_set_color(color);
+  SDL_SetRenderScale(gui_renderer, scale, scale);
+  SDL_RenderDebugText(gui_renderer, x / scale, y / scale, text);
+  SDL_SetRenderScale(gui_renderer, 1.0f, 1.0f);
+}
+
+float gui_text_width(float scale, const char *text) {
+  return (float)strlen(text) * SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE * scale;
+}
+
+void gui_text_centered(float y, float scale, int color, const char *text) {
+  gui_text((GUI_SCREEN_W - gui_text_width(scale, text)) / 2, y, scale, color, text);
+}
+
+void gui_fill_rect(float x, float y, float w, float h, int color) {
+  SDL_FRect rect = {x, y, w, h};
+  gui_set_color(color);
+  SDL_RenderFillRect(gui_renderer, &rect);
+}
+
+void gui_outline_rect(float x, float y, float w, float h, int color) {
+  SDL_FRect rect = {x, y, w, h};
+  gui_set_color(color);
+  SDL_RenderRect(gui_renderer, &rect);
+}
+
+void gui_draw_status(const char *title, const char *detail) {
+  gui_draw_backdrop();
+  gui_text_centered(GUI_SCREEN_H / 2 - 24, 2.0f, 0xffffff, title);
+  if (detail != NULL && detail[0] != 0) {
+    gui_text_centered(GUI_SCREEN_H / 2 + 8, 1.0f, 0xa0a0a0, detail);
+  }
+  SDL_RenderPresent(gui_renderer);
 }
