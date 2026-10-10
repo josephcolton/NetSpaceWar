@@ -36,7 +36,6 @@ void checkClientKeepAlive() {
       ssend_msg_logoutack(serverSocket, *(sdataArrayClients[i]->client_addr));
       // Delete the client node
       sdataDeleteClient(sdataArrayClients[i]->objectID);
-      sdataDeleteClient(sdataArrayClients[i]->objectID);
       // Repeat the same client index, incase there are more.
       i--;
       continue;
