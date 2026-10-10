@@ -41,7 +41,7 @@ find_library(MATH_LIB m)
 
 # Server: no external dependencies
 add_executable(SpaceWarServer src/SpaceWarServer.c src/server.c src/sdata.c src/physics.c src/asteroids.c
-               src/options.c src/platform.c)
+               src/match.c src/options.c src/platform.c)
 
 # AI client: headless, no external dependencies
 add_executable(SpaceWarAI src/SpaceWarAI.c src/ai.c src/client.c src/cdata.c src/options.c src/platform.c)
