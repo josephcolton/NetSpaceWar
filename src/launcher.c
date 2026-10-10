@@ -703,8 +703,8 @@ static void launcherDrawGamepad() {
     {gui_pad_role_name(GUI_PAD_FIRE), "Fire, choose in menus, fly again"},
     {gui_pad_role_name(GUI_PAD_JUMP), "Hyperjump"},
     {nintendo ? "L / R" : "Left / right bumper", "Power to shields / weapons"},
-    {nintendo ? "- (hold)" : "Back (hold)", "Scores"},
-    {nintendo ? "+" : "Start", "Leave the game"},
+    {nintendo ? "ZL or - (hold)" : "LT or Back (hold)", "Scores"},
+    {nintendo ? "+ twice" : "Start twice", "Leave the game"},
   };
   const char *name = gui_gamepad_name();
   char text[LEN];

@@ -46,6 +46,7 @@ int gui_gamepad_nintendo();
 #define GUI_PAD_JUMP 2 // Y (Triangle): hyperjump
 SDL_GamepadButton gui_pad_role(int role);
 const char *gui_pad_role_name(int role);
+const char *gui_pad_menu_name(); // "+" on Nintendo controllers, else "Start"
 // Open the window. Safe to call more than once.
 void gui_init_sdl();
 SDL_Window *gui_get_window();

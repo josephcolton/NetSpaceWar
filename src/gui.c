@@ -116,6 +116,21 @@ const char *gui_pad_role_name(int role) {
   return names[role][playstation];
 }
 
+// What + / Start is called on this controller
+const char *gui_pad_menu_name() {
+  return gui_gamepad_nintendo() ? "+" : "Start";
+}
+
+// The left trigger (ZL), or Back / -, held: show the scores
+static int gui_pad_scores_held() {
+  return gui_pad_button(SDL_GAMEPAD_BUTTON_BACK) || gui_pad_axis(SDL_GAMEPAD_AXIS_LEFT_TRIGGER) > 0.5;
+}
+
+// When + / Start was first pressed, from platformNow(); a second press
+// within GUI_LEAVE_CONFIRM seconds leaves the game
+#define GUI_LEAVE_CONFIRM 3.0
+static double gui_leave_asked = -100.0;
+
 SDL_Window *gui_window = NULL;
 SDL_Renderer *gui_renderer = NULL;
 GuiArea screen_area = {0, 0, GUI_SCREEN_W, GUI_SCREEN_H};
@@ -410,13 +425,20 @@ void gui_update_display() {
     gui_text_centered(80, 2.0f, 0xffffff, "Your ship was destroyed");
     if (gui_pad) {
       char again[LEN];
-      snprintf(again, LEN, "Press %s or %s to fly again", gui_pad_role_name(GUI_PAD_FIRE), gui_pad_role_name(GUI_PAD_JUMP));
+      snprintf(again, LEN, "Press %s or %s to fly again, or %s to leave", gui_pad_role_name(GUI_PAD_FIRE),
+               gui_pad_role_name(GUI_PAD_JUMP), gui_pad_menu_name());
       gui_text_centered(104, 1.0f, 0xc0c0c0, again);
     } else {
-      gui_text_centered(104, 1.0f, 0xc0c0c0, "Press Space or Tab to fly again");
+      gui_text_centered(104, 1.0f, 0xc0c0c0, "Press Space or Tab to fly again, or Esc to leave");
     }
   }
-  if (clientShip->status == 0 || SDL_GetKeyboardState(NULL)[SDL_SCANCODE_S] || gui_pad_button(SDL_GAMEPAD_BUTTON_BACK)) {
+  // A first press of + / Start asks before leaving (see gui_get_input())
+  if (platformNow() - gui_leave_asked < GUI_LEAVE_CONFIRM) {
+    char leave[LEN];
+    snprintf(leave, LEN, "Press %s again to leave the game", gui_pad_menu_name());
+    gui_text_centered(124, 1.0f, 0xffff40, leave);
+  }
+  if (clientShip->status == 0 || SDL_GetKeyboardState(NULL)[SDL_SCANCODE_S] || gui_pad_scores_held()) {
     gui_draw_scoreboard();
   }
 
@@ -442,6 +464,7 @@ int gui_get_input(double *angle_change, double *accel_amount, int *energy_to_shi
 	const bool *key;
 	SDL_Event event;
 	double turn, thrust;
+	static int start_was_down = 0;
 
 	if (DEBUG) printf("gui_get_input(%.2f, %.2f, %d, %d)\n",
 			  *angle_change, *accel_amount, *energy_to_shields, *flags);
@@ -508,9 +531,20 @@ int gui_get_input(double *angle_change, double *accel_amount, int *energy_to_shi
 	{
 		*flags|=P_GUI_FLAG_HYPER;
 	}
-	if (key[SDL_SCANCODE_ESCAPE]||gui_pad_button(SDL_GAMEPAD_BUTTON_START)) // quit
+	if (key[SDL_SCANCODE_ESCAPE]) // quit
 	{
 		*flags|=P_GUI_FLAG_QUIT;
+	}
+	// On a gamepad, + / Start must be pressed twice to leave, since a host
+	// leaving ends the game for everyone
+	if (gui_pad_button(SDL_GAMEPAD_BUTTON_START)) {
+		if (!start_was_down) {
+			if (platformNow() - gui_leave_asked < GUI_LEAVE_CONFIRM) *flags |= P_GUI_FLAG_QUIT;
+			else gui_leave_asked = platformNow();
+		}
+		start_was_down = 1;
+	} else {
+		start_was_down = 0;
 	}
 
 	if (key[SDL_SCANCODE_Z]||gui_pad_button(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER)) // energy to shield
@@ -1181,7 +1215,12 @@ static void gui_draw_score() {
   if (target > 0) snprintf(text, LEN, "Score %d / %d", own ? own->score : 0, target);
   else snprintf(text, LEN, "Score %d", own ? own->score : 0);
   gui_text(8, 8, 2.0f, 0xffffff, text);
-  gui_text(8, 30, 1.0f, 0x808080, "Hold S for scores and rules");
+  if (gui_pad) {
+    snprintf(text, LEN, "Hold S or %s for scores and rules", gui_gamepad_nintendo() ? "ZL" : "LT");
+    gui_text(8, 30, 1.0f, 0x808080, text);
+  } else {
+    gui_text(8, 30, 1.0f, 0x808080, "Hold S for scores and rules");
+  }
   if (audioMuted()) gui_text(8, 44, 1.0f, 0x808080, "Sound off (M)");
 }
 

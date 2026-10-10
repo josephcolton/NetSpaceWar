@@ -120,8 +120,8 @@ A gamepad works too, plugged in before or during a game:
 | A (Cross) | Fire missile; also respawns after you die |
 | Y (Triangle) | Hyperjump (also respawns) |
 | Left / right bumper (L / R) | Move energy to / from shields |
-| Back or - (hold) | Show the scoreboard |
-| Start or + | Leave the game |
+| Left trigger (ZL), Back or - (hold) | Show the scoreboard |
+| Start or + (press twice) | Leave the game and go back to the menu |
 
 Buttons follow the labels printed on your controller, so A is A whether it sits at the bottom (Xbox) or on the right (Nintendo); PlayStation's Cross, Circle and Triangle work as A, B and Y. In the menus, use the D-pad or left stick to move, A to choose and B to go back. A on a name or address field jumps to Start Game or Join Game. **Options** shows which gamepad is connected and its buttons. On the keyboard, Space also respawns.
 
