@@ -1,7 +1,7 @@
 # NetSpaceWar
 Network based Space War: a multiplayer clone of Spacewar! Fly around a looping universe, dodge planets, and shoot down other players and AI bots.
 
-![A game in progress, with the scoreboard and game rules shown](docs/images/game.png)
+![A game in progress: a volcano planet, a recharge orb, an enemy ship, and messages about players joining](docs/images/game.png)
 
 ## Download
 
@@ -67,7 +67,7 @@ The icon is drawn by `res/make_icon.py` (`python res/make_icon.py` rewrites `res
 Run `NetSpaceWar` (on Windows, double-click `NetSpaceWar.exe`).
 
 <p>
-  <img src="docs/images/menu.png" width="48%" alt="The main menu: Host Game, Join Game, Quit">
+  <img src="docs/images/menu.png" width="48%" alt="The main menu: Host Game, Join Game, Options, About, Quit">
   <img src="docs/images/host.png" width="48%" alt="The Host a Game screen: name, port, AI bots, and the address others can join">
 </p>
 
@@ -75,8 +75,9 @@ Run `NetSpaceWar` (on Windows, double-click `NetSpaceWar.exe`).
   - **Game Settings** changes the rules for games you host: number of planets, gravity, missile life, top speed, crash and missile damage, the energy cost of shots and hyperjumps, how many planets start with volcanoes, how long a volcano waits between recharge orbs, how often asteroids drift in (None to Frequent; None by default), and the match length (Endless by default, or first to 500, 1000 or 5000 points). The list scrolls. Changed values are highlighted, and **Reset to Defaults** puts them all back. Everyone who joins, bots included, gets the host's rules: players see them by holding S.
 - **Join Game** connects to someone else's game by address and port. It also searches your local network and lists the games it finds (the host's name, address and players); choose one to fill in its address and port. **Find Games** searches again. Games running a different version are shown dimmed. Servers started with the address 0.0.0.0 answer searches on UDP port 27959.
 
-<p align="center">
-  <img src="docs/images/settings.png" width="60%" alt="The Game Settings screen, with planets, gravity and max speed changed from their defaults">
+<p>
+  <img src="docs/images/settings.png" width="48%" alt="The Game Settings screen, with planets, gravity and volcanoes changed from their defaults">
+  <img src="docs/images/join.png" width="48%" alt="The Join a Game screen, listing two games found on the local network">
 </p>
 
 Press Escape during a game to return to the menu. Your choices are remembered for next time.
