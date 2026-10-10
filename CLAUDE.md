@@ -29,11 +29,22 @@ cmake -S . -B build -DNSW_BUILD_CLIENT=OFF   # server + AI only
 
 ## Releasing
 
-Releases are Windows installers published as GitHub releases (`josephcolton/NetSpaceWar`, first one `v1.0.0`). The README's Download section links to `/releases/latest`, so it needs no edit per release.
+Releases are Windows installers published as GitHub releases (`josephcolton/NetSpaceWar`). The README's Download section links to `/releases/latest`, so it needs no edit per release.
+
+Released so far:
+- `v1.0.0`: first release, with the installer and icon.
+- `v1.1.0` (tag on `8d9645b`): the version check and About screen, volcanoes and recharge orbs, asteroids, radar wrapping, and `DEBUG` off. It can't play with 1.0.0. 1.0.0 clients are refused without an explanation, because they predate the check.
+
+`project(VERSION)` on `main` is the last released version until the next bump. Bump it before releasing anything that changes the protocol or gameplay; patch versions (1.1.x) are for fixes.
 
 1. Bump `project(VERSION ...)` in `CMakeLists.txt` and commit on `main`. Any version change makes players of the old version unable to join (see Version check).
 2. `cmake --workflow --preset windows-release` (`CMakePresets.json`, Strawberry's `C:\Strawberry\c\bin` first on PATH) configures, builds and runs CPack's `INNOSETUP` generator in `build-release/`, producing `build-release/NetSpaceWar-<version>-setup.exe`.
-3. Tag and publish: `git tag -a vX.Y.Z -m "NetSpaceWar X.Y.Z"`, `git push origin vX.Y.Z`, then `gh release create vX.Y.Z build-release/NetSpaceWar-X.Y.Z-setup.exe --title "NetSpaceWar X.Y.Z" --notes-file <notes> --verify-tag`. Releases are normal (not pre-release); the owner makes a follow-up release if something is wrong.
+3. Tag and publish: `git tag -a vX.Y.Z -m "NetSpaceWar X.Y.Z"`, `git push origin vX.Y.Z`, then `gh release create vX.Y.Z build-release/NetSpaceWar-X.Y.Z-setup.exe --title "NetSpaceWar X.Y.Z" --notes-file <notes> --verify-tag`. Releases are normal (not pre-release); the owner makes a follow-up release if something is wrong. Before tagging:
+   - check that the `build-release/` exes need only Windows DLLs (`objdump -p`) and that `NetSpaceWar.exe`'s file version matches,
+   - run the release server and two bots briefly,
+   - then confirm the uploaded asset's size matches the local file and `/releases/latest` redirects to the new tag.
+
+   Release notes have three parts: install (including the SmartScreen "More info, Run anyway" step and the version rule), what's new for players, and "Requires 64-bit Windows 10 or later".
 
 Tools on this machine: Inno Setup 6 is installed per-user in `%LOCALAPPDATA%\Programs\Inno Setup 6`, where `find_program(NSW_ISCC)` finds it. The GitHub CLI is a portable copy at `%LOCALAPPDATA%\Programs\GitHub CLI\bin\gh.exe` and is **not on PATH**, so call it by full path. It is logged in as `josephcolton`. winget is broken here (source error 0x8a15000f), so download tools directly from their official releases instead.
 
