@@ -21,6 +21,8 @@ void gui_draw_hud(GuiArea *buffer, int shield, int energy);
 void gui_draw_radar(GuiArea *buffer);
 void gui_draw_stars(GuiArea *buffer, double mv_x, double mv_y);
 void gui_draw_planet(GuiArea *buffer, double rel_x, double rel_y, double radius);
+static void gui_draw_volcano(GuiArea *buffer, double rel_x, double rel_y);
+static void gui_draw_orb(GuiArea *buffer, double rel_x, double rel_y, int life);
 static void gui_draw_score();
 static void gui_draw_scoreboard();
 
@@ -172,7 +174,7 @@ void gui_update_display() {
 
 
     gui_draw_planet(scr_buff, xcoord ,ycoord, P_GUI_DEFAULT_PLANET_SIZE);
-    
+    if (cdataArrayPlanets[i]->volcano) gui_draw_volcano(scr_buff, xcoord, ycoord);
   }
 
   // Draw Ships
@@ -238,6 +240,17 @@ void gui_update_display() {
 
     // Draw the missile
     gui_draw_missile(scr_buff, xcoord, ycoord, orientation);
+  }
+
+  // Draw recharge orbs
+  for (i=0; i < cdataCountOrbs; i++) {
+    xcoord = cdataOrbs[i].xcoord - player_x;
+    if (xcoord < SPACE_MIN_XCOORD) xcoord += (SPACE_MAX_XCOORD - SPACE_MIN_XCOORD);
+    if (xcoord > SPACE_MAX_XCOORD) xcoord -= (SPACE_MAX_XCOORD - SPACE_MIN_XCOORD);
+    ycoord = cdataOrbs[i].ycoord - player_y;
+    if (ycoord < SPACE_MIN_YCOORD) ycoord += (SPACE_MAX_YCOORD - SPACE_MIN_YCOORD);
+    if (ycoord > SPACE_MAX_YCOORD) ycoord -= (SPACE_MAX_YCOORD - SPACE_MIN_YCOORD);
+    gui_draw_orb(scr_buff, xcoord, ycoord, cdataOrbs[i].life);
   }
 
   // Draw Explosions
@@ -455,9 +468,57 @@ void gui_draw_planet(GuiArea *buffer, double rel_x, double rel_y, double radius)
 	       buffer->w/2 + rel_x*P_GUI_RADIUS_FUNC(buffer)/P_GUI_SHIP_RADIUS_INTERNAL ,
 	       buffer->h/2 + rel_y*P_GUI_RADIUS_FUNC(buffer)/P_GUI_SHIP_RADIUS_INTERNAL  ,
 	       radius*P_GUI_RADIUS_FUNC(buffer)/P_GUI_SHIP_RADIUS_INTERNAL , planetcolor);
-	       
 
 
+
+}
+
+// A volcano in the middle of a planet, seen from above: lava cracks running
+// out from a dark crater rim around slowly pulsing lava
+static void gui_draw_volcano(GuiArea *buffer, double rel_x, double rel_y) {
+  double scale = P_GUI_RADIUS_FUNC(buffer) / P_GUI_SHIP_RADIUS_INTERNAL; // Pixels per internal unit
+  double cx = buffer->w/2 + rel_x*scale, cy = buffer->h/2 + rel_y*scale;
+  double glow = 0.5 + 0.5 * sin(SDL_GetTicks() / 1000.0 * M_PI); // Two second pulse
+  int lava = gui_makecol(255, 90 + (int)(90*glow), (int)(40*glow));
+  int crack = gui_makecol(190, 60 + (int)(50*glow), 0);
+  double a;
+  int k;
+
+  // Each crack is two jagged segments
+  for (k=0; k < 6; k++) {
+    a = k * M_PI / 3 + 0.3;
+    gui_line(buffer, cx + cos(a)*1.6*scale, cy + sin(a)*1.6*scale,
+	     cx + cos(a + 0.18)*2.7*scale, cy + sin(a + 0.18)*2.7*scale, crack);
+    gui_line(buffer, cx + cos(a + 0.18)*2.7*scale, cy + sin(a + 0.18)*2.7*scale,
+	     cx + cos(a - 0.05)*3.7*scale, cy + sin(a - 0.05)*3.7*scale, crack);
+  }
+  gui_circlefill(buffer, cx, cy, 2.0*scale, gui_makecol(85, 60, 40));
+  gui_circle(buffer, cx, cy, 2.0*scale, gui_makecol(55, 38, 25));
+  gui_circlefill(buffer, cx, cy, 1.2*scale, lava);
+}
+
+static void gui_octagon(GuiArea *buffer, double cx, double cy, double radius, double rotation, int color) {
+  int k;
+  for (k=0; k < 8; k++) {
+    double a1 = rotation + k * M_PI / 4, a2 = a1 + M_PI / 4;
+    gui_line(buffer, cx + cos(a1)*radius, cy + sin(a1)*radius, cx + cos(a2)*radius, cy + sin(a2)*radius, color);
+  }
+}
+
+// A recharge orb: two octagons turning opposite ways, slowly strobing
+// between the energy (yellow) and shield (cyan) colors. It blinks when it
+// is about to fade, faster at the very end.
+static void gui_draw_orb(GuiArea *buffer, double rel_x, double rel_y, int life) {
+  double scale = P_GUI_RADIUS_FUNC(buffer) / P_GUI_SHIP_RADIUS_INTERNAL;
+  double cx = buffer->w/2 + rel_x*scale, cy = buffer->h/2 + rel_y*scale;
+  double t = SDL_GetTicks() / 1000.0;
+  double mix = 0.5 + 0.5 * sin(t * 2 * M_PI / 1.6);
+  int color = gui_makecol((int)(255*(1 - mix)), 255, (int)(255*mix));
+
+  if (life < ORB_TICKS(10) && (int)(t * (life < ORB_TICKS(3) ? 8 : 4)) % 2) return;
+  gui_octagon(buffer, cx, cy, ORB_RADIUS*scale, t * 0.6, color);
+  gui_octagon(buffer, cx, cy, ORB_RADIUS*0.55*scale, -t * 0.9, color);
+  gui_putpixel(buffer, cx, cy, gui_makecol(255, 255, 255));
 }
 
 
@@ -696,6 +757,8 @@ void gui_draw_radar(GuiArea *buffer)
   int other_col   =   gui_makecol(255,60,60);
   int missile_col =   gui_makecol(255,255,0);
   int planet_col  =   gui_makecol(128,90,0);
+  int volcano_col =   gui_makecol(255,120,0);
+  int orb_col     =   gui_makecol(0,255,255);
   
   int i;
 
@@ -729,7 +792,12 @@ void gui_draw_radar(GuiArea *buffer)
 	       (ycoord-SPACE_MIN_YCOORD)/(SPACE_MAX_YCOORD-SPACE_MIN_YCOORD)*buffer->h ,
 	       (P_GUI_DEFAULT_PLANET_SIZE)/(SPACE_MAX_XCOORD-SPACE_MIN_XCOORD)*buffer->w ,
 	       planet_col);
-
+    if (cdataArrayPlanets[i]->volcano) {
+      gui_putpixel(buffer,
+		   (xcoord-SPACE_MIN_XCOORD)/(SPACE_MAX_XCOORD-SPACE_MIN_XCOORD)*buffer->w ,
+		   (ycoord-SPACE_MIN_YCOORD)/(SPACE_MAX_YCOORD-SPACE_MIN_YCOORD)*buffer->h ,
+		   volcano_col);
+    }
   }
 
   // Draw Ships
@@ -769,6 +837,13 @@ void gui_draw_radar(GuiArea *buffer)
 	       missile_col);
   }
 
+  // Recharge orbs are a small cross, so they are easy to find
+  for (i=0; i < cdataCountOrbs; i++) {
+    xcoord = (cdataOrbs[i].xcoord-SPACE_MIN_XCOORD)/(SPACE_MAX_XCOORD-SPACE_MIN_XCOORD)*buffer->w;
+    ycoord = (cdataOrbs[i].ycoord-SPACE_MIN_YCOORD)/(SPACE_MAX_YCOORD-SPACE_MIN_YCOORD)*buffer->h;
+    gui_hline(buffer, xcoord - 1, ycoord, xcoord + 1, orb_col);
+    gui_vline(buffer, xcoord, ycoord - 1, ycoord + 1, orb_col);
+  }
 
 }
 

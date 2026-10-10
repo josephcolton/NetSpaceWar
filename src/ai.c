@@ -192,10 +192,28 @@ static struct dataNodePlanets *aiPlanetThreat() {
   return closest;
 }
 
+// The closest recharge orb worth chasing, or NULL when we don't need one
+static struct dataNodeOrbs *aiWantedOrb() {
+  int i;
+  double dist, closeDist = AI_ORB_RANGE;
+  struct dataNodeOrbs *closest = NULL;
+
+  if (clientShip->energy + clientShip->shields >= AI_RECHARGE_BELOW) return NULL;
+  for (i=0; i < cdataCountOrbs; i++) {
+    dist = aiDistanceTo(cdataOrbs[i].xcoord, cdataOrbs[i].ycoord);
+    if (dist < closeDist) {
+      closeDist = dist;
+      closest = &cdataOrbs[i];
+    }
+  }
+  return closest;
+}
+
 void clientAIupdate(int mysocket, struct sockaddr_in server_addr) {
   double now, dt;
   struct dataNodeShips *target = NULL;
   struct dataNodePlanets *planet;
+  struct dataNodeOrbs *orb;
   double dx, dy, dist = 0.0;
   double wantX = 0.0, wantY = 0.0; // Velocity we want to have
   double fixX, fixY, fixSpeed;
@@ -242,7 +260,22 @@ void clientAIupdate(int mysocket, struct sockaddr_in server_addr) {
     }
   }
 
-  // Avoiding planets comes before chasing targets
+  // Running low: head for where a recharge orb will be when we get there.
+  // Keep shooting at the target on the way.
+  orb = aiWantedOrb();
+  if (orb != NULL) {
+    double ox = aiWrapDelta(clientShip->xcoord, orb->xcoord, SPACE_MIN_XCOORD, SPACE_MAX_XCOORD);
+    double oy = aiWrapDelta(clientShip->ycoord, orb->ycoord, SPACE_MIN_YCOORD, SPACE_MAX_YCOORD);
+    double arrive = sqrt(ox * ox + oy * oy) / aiCruiseSpeed();
+    ox += orb->xVelocity * arrive;
+    oy += orb->yVelocity * arrive;
+    if (ox != 0.0 || oy != 0.0) {
+      wantX = ox / sqrt(ox * ox + oy * oy) * aiCruiseSpeed();
+      wantY = oy / sqrt(ox * ox + oy * oy) * aiCruiseSpeed();
+    }
+  }
+
+  // Avoiding planets comes before chasing targets and orbs
   planet = aiPlanetThreat();
   if (planet != NULL) {
     dx = aiWrapDelta(planet->xcoord, clientShip->xcoord, SPACE_MIN_XCOORD, SPACE_MAX_XCOORD);

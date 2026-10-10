@@ -63,6 +63,17 @@
 #define PHYSICS_PER_REST 10
 #define GRAVITY          100
 #define PLANETS          2
+#define GRAVITY_RANGE    (P_GUI_DEFAULT_PLANET_SIZE * P_GUI_DEFAULT_PLANET_SIZE * 2) // Planets pull within this distance
+
+/* Volcanoes and the recharge orbs they shoot out */
+#define VOLCANOES        1    // Planets that start with a volcano
+#define ORB_WAIT         30   // Seconds a volcano waits after its orb is gone
+#define ORB_LIFE         60   // Seconds before an uncollected orb fades away
+#define ORB_RADIUS       1.0
+#define ORB_SPEED_LOW    0.9  // Launch speed range, as a fraction of the speed to escape
+#define ORB_SPEED_HIGH   1.1  // the volcano's gravity: some orbs escape and some fall back
+#define ORB_DRIFT_SPEED  3.0  // Slowest launch, so orbs still move when gravity is off
+#define ORB_TICKS(secs)  ((int)((secs) / PHYS_SECS_PER_UPDATE))
 
 /* Point Assignments */
 #define POINTS_HIT       10
@@ -76,6 +87,7 @@
 #define MAX_COUNT_SHIPS      MAX_COUNT_CLIENTS
 #define MAX_COUNT_MISSILES   50
 #define MAX_COUNT_PLANETS    5
+#define MAX_COUNT_ORBS       MAX_COUNT_PLANETS // One per volcano
 
 /* Define Status Codes */
 #define STATUS_OKAY    0
@@ -108,6 +120,7 @@
 #define MSG_STATICOBJS     13
 #define MSG_DELETEOBJ      14
 #define MSG_GAMEOPTIONS    15
+#define MSG_UPDATEORBS     16
 
 /* Define Actions */
 #define ACTION_THRUST   0
@@ -240,6 +253,18 @@ struct dataNodePlanets {
   object_t objectID;
   double xcoord;
   double ycoord;
+  uint8_t volcano; // 1 if the planet has a volcano
+} packed;
+
+// A recharge orb: a ship that touches it gets full energy and shields
+struct dataNodeOrbs {
+  object_t objectID;
+  double xcoord;
+  double ycoord;
+  double xVelocity;
+  double yVelocity;
+  object_t source; // The planet whose volcano shot it out
+  int32_t life;    // Physics ticks until it fades away
 } packed;
 
 /* Basic Message Struct */
@@ -294,6 +319,13 @@ struct msg_updatemissiles {
   message_t mtype; /* = MSG_UPDATEMISSILES */
   int32_t obj_count;
   struct dataNodeMissiles missiles[]; // obj_count entries
+} packed;
+
+// Every recharge orb; the list replaces the client's previous one
+struct msg_updateorbs {
+  message_t mtype; /* = MSG_UPDATEORBS */
+  int32_t obj_count;
+  struct dataNodeOrbs orbs[]; // obj_count entries
 } packed;
 
 // Report explosion location to client
@@ -370,7 +402,9 @@ struct msg_clientupdate {
 _Static_assert(sizeof(struct wireClient) == 22, "wireClient wire size");
 _Static_assert(sizeof(struct dataNodeShips) == 54, "dataNodeShips wire size");
 _Static_assert(sizeof(struct dataNodeMissiles) == 52, "dataNodeMissiles wire size");
-_Static_assert(sizeof(struct dataNodePlanets) == 18, "dataNodePlanets wire size");
+_Static_assert(sizeof(struct dataNodePlanets) == 19, "dataNodePlanets wire size");
+_Static_assert(sizeof(struct dataNodeOrbs) == 40, "dataNodeOrbs wire size");
+_Static_assert(sizeof(struct msg_updateorbs) == 6, "msg_updateorbs wire size");
 _Static_assert(sizeof(struct msg_clientinfo) == 56, "msg_clientinfo wire size");
 _Static_assert(sizeof(struct msg_updateplayers) == 6, "msg_updateplayers wire size");
 _Static_assert(sizeof(struct msg_clientupdate) == 24, "msg_clientupdate wire size");

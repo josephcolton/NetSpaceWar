@@ -2,6 +2,7 @@
 #include "global.h"
 #include "server.h"
 #include "sdata.h"
+#include "physics.h"
 
 int serverLogLevel = LOG_EVENTS;
 
@@ -44,6 +45,7 @@ void serverInitialize() {
     ycoord = randRange(SPACE_MIN_YCOORD, SPACE_MAX_YCOORD);
     sdataCreatePlanet(sdataNewObjectID(), xcoord, ycoord);
   }
+  volcanoInitialize();
 }
 
 // Client Keepalive Checks
@@ -414,6 +416,7 @@ void ssend_msg_staticobjs(int mysocket, struct sockaddr_in client_addr) {
     (packet->planets[i]).objectID = sdataArrayPlanets[i]->objectID;
     (packet->planets[i]).xcoord = sdataArrayPlanets[i]->xcoord;
     (packet->planets[i]).ycoord = sdataArrayPlanets[i]->ycoord;
+    (packet->planets[i]).volcano = sdataArrayPlanets[i]->volcano;
     if (VERBOSE) printf("  packet->planet[%d].objectID = %d\n", i, (packet->planets[i]).objectID);
     if (VERBOSE) printf("  packet->planet[%d].xcoord = %.2f\n", i, (packet->planets[i]).xcoord);
     if (VERBOSE) printf("  packet->planet[%d].ycoord = %.2f\n", i, (packet->planets[i]).ycoord);
@@ -595,6 +598,24 @@ void ssend_msg_updatemissiles(int mysocket, struct sockaddr_in client_addr) {
   // See if we got any errors
   if (bytes < 0) {
     fprintf(stderr, "Error: unable to send msg_updatemissiles: %d\n", netLastError());
+  }
+  free(packet);
+}
+
+// Sent every tick, even when empty: clients drop orbs missing from the list
+void ssend_msg_updateorbs(int mysocket, struct sockaddr_in client_addr) {
+  int i, bytes;
+  int packetSize = sizeof(struct msg_updateorbs) + sizeof(struct dataNodeOrbs) * sdataCountOrbs;
+  struct msg_updateorbs *packet = (struct msg_updateorbs *)malloc(packetSize);
+
+  if (VERBOSE) printf("Packet Created: ssend_msg_updateorbs (%d orbs)\n", sdataCountOrbs);
+  packet->mtype = MSG_UPDATEORBS;
+  packet->obj_count = sdataCountOrbs;
+  for (i=0; i < sdataCountOrbs; i++) packet->orbs[i] = *sdataArrayOrbs[i];
+
+  bytes = sendto(mysocket, (const char *)packet, packetSize, 0, (struct sockaddr *)&client_addr, sizeof(client_addr));
+  if (bytes < 0) {
+    fprintf(stderr, "Error: unable to send msg_updateorbs: %d\n", netLastError());
   }
   free(packet);
 }
@@ -794,6 +815,13 @@ void broadcastUpdateMissiles() {
   // Send updates to all players
   for (i=0; i < sdataCountClients; i++) {
     ssend_msg_updatemissiles(serverSocket, *(sdataArrayClients[i]->client_addr));
+  }
+}
+
+void broadcastUpdateOrbs() {
+  int i;
+  for (i=0; i < sdataCountClients; i++) {
+    ssend_msg_updateorbs(serverSocket, *(sdataArrayClients[i]->client_addr));
   }
 }
 

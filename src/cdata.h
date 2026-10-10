@@ -20,6 +20,9 @@ extern int cdataCountExplosions;
 extern int cdataCountShips;
 extern int cdataCountMissiles;
 extern int cdataCountPlanets;
+// Recharge orbs: each orb list from the server replaces the last one
+extern struct dataNodeOrbs cdataOrbs[MAX_COUNT_ORBS];
+extern int cdataCountOrbs;
 
 // The latest scoreboard from the server, in the server's order
 extern struct wireScore cdataScores[MAX_COUNT_CLIENTS];

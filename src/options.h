@@ -15,6 +15,8 @@ enum {
   OPTION_MISSILE_DMG,
   OPTION_MISSILE_COST,
   OPTION_JUMP_COST,
+  OPTION_VOLCANOES,
+  OPTION_ORB_WAIT,
   OPTION_COUNT
 };
 
@@ -29,6 +31,9 @@ struct gameOption {
 extern const struct gameOption gameOptions[OPTION_COUNT];
 
 void gameOptionsReset(int *values);
+// Keep options that depend on each other consistent (no more volcanoes than
+// planets). Returns 1 if it had to change anything.
+int gameOptionsFix(int *values);
 int gameOptionClamp(int option, int value);
 int gameOptionFind(const char *name);  // -1 if there is no such option
 // Read "--name value" pairs from argv[first..]. Returns 0 (after printing

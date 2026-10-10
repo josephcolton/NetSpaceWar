@@ -11,12 +11,14 @@ int sdataCountExplosions;
 int sdataCountShips;
 int sdataCountMissiles;
 int sdataCountPlanets;
+int sdataCountOrbs;
 double lastTime;
 struct dataNodeClients *sdataArrayClients[MAX_COUNT_CLIENTS];
 struct dataNodeExplosions *sdataArrayExplosions[MAX_COUNT_EXPLOSIONS];
 struct dataNodeShips *sdataArrayShips[MAX_COUNT_SHIPS];
 struct dataNodeMissiles *sdataArrayMissiles[MAX_COUNT_MISSILES];
 struct dataNodePlanets *sdataArrayPlanets[MAX_COUNT_PLANETS];
+struct dataNodeOrbs *sdataArrayOrbs[MAX_COUNT_ORBS];
 int scoreChanged;
 
 /* Server Data Access Functions */
@@ -45,6 +47,7 @@ void sdataInitialize() {
   for (i=0; i < MAX_COUNT_SHIPS; i++) sdataArrayShips[i] = NULL;
   for (i=0; i < MAX_COUNT_MISSILES; i++) sdataArrayMissiles[i] = NULL;
   for (i=0; i < MAX_COUNT_PLANETS; i++) sdataArrayPlanets[i] = NULL;
+  for (i=0; i < MAX_COUNT_ORBS; i++) sdataArrayOrbs[i] = NULL;
   scoreChanged = 0;
 
   // Initialize all of the object counts
@@ -52,6 +55,7 @@ void sdataInitialize() {
   sdataCountShips = 0;
   sdataCountMissiles = 0;
   sdataCountPlanets = 0;
+  sdataCountOrbs = 0;
 }
 
 int lastTimeLeft(int usec) {
@@ -271,11 +275,29 @@ int sdataCreatePlanet(object_t objectID, double xcoord, double ycoord) {
   newNode->objectID = objectID;
   newNode->xcoord = xcoord;
   newNode->ycoord = ycoord;
+  newNode->volcano = 0;
 
   // Increment the count
   sdataCountPlanets++;
 
   // Return true
+  return SW_TRUE;
+}
+
+int sdataCreateOrb(object_t objectID, double xcoord, double ycoord, double xVelocity, double yVelocity, object_t source) {
+  struct dataNodeOrbs *newNode;
+  if (VERBOSE) printf("    sdataCreateOrb(%d, %.2f, %.2f)\n", objectID, xcoord, ycoord);
+
+  if (sdataCountOrbs >= MAX_COUNT_ORBS) return SW_FALSE;
+  newNode = (struct dataNodeOrbs *)malloc(sizeof(struct dataNodeOrbs));
+  newNode->objectID = objectID;
+  newNode->xcoord = xcoord;
+  newNode->ycoord = ycoord;
+  newNode->xVelocity = xVelocity;
+  newNode->yVelocity = yVelocity;
+  newNode->source = source;
+  newNode->life = ORB_TICKS(ORB_LIFE);
+  sdataArrayOrbs[sdataCountOrbs++] = newNode;
   return SW_TRUE;
 }
 
@@ -400,6 +422,20 @@ void sdataDeletePlanet(object_t objectID) {
   }
 
   if (delNode != NULL) free(delNode);
+}
+
+// Clients drop orbs that are missing from the next orb list, so there is
+// nothing to broadcast
+void sdataDeleteOrb(object_t objectID) {
+  int i;
+  for (i=0; i < sdataCountOrbs; i++) {
+    if (sdataArrayOrbs[i]->objectID != objectID) continue;
+    free(sdataArrayOrbs[i]);
+    // Move the last orb into the gap
+    sdataArrayOrbs[i] = sdataArrayOrbs[--sdataCountOrbs];
+    sdataArrayOrbs[sdataCountOrbs] = NULL;
+    return;
+  }
 }
 
 // Update Functions

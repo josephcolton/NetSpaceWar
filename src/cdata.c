@@ -14,6 +14,8 @@ int cdataCountExplosions;
 int cdataCountShips;
 int cdataCountMissiles;
 int cdataCountPlanets;
+struct dataNodeOrbs cdataOrbs[MAX_COUNT_ORBS];
+int cdataCountOrbs;
 struct wireScore cdataScores[MAX_COUNT_CLIENTS];
 int cdataCountScores;
 int cdataOptions[OPTION_COUNT];
@@ -55,6 +57,7 @@ void cdataInitialize() {
   cdataCountShips = 0;
   cdataCountMissiles = 0;
   cdataCountPlanets = 0;
+  cdataCountOrbs = 0;
   cdataCountScores = 0;
 
   // Rules are the defaults until the server says otherwise
@@ -229,6 +232,7 @@ int cdataCreatePlanet(object_t objectID, double xcoord, double ycoord) {
   newNode->objectID = objectID;
   newNode->xcoord = xcoord;
   newNode->ycoord = ycoord;
+  newNode->volcano = 0;
 
   // Increment the count
   cdataCountPlanets++;

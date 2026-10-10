@@ -10,11 +10,19 @@ const struct gameOption gameOptions[OPTION_COUNT] = {
   {"missile-damage","Missile damage", "Shield damage from a missile hit",                        COLLISION_EXP,     5, 100, 5},
   {"shot-cost",     "Shot cost",      "Energy used by each missile",                             MISSILE_COST,      0, 20, 1},
   {"jump-cost",     "Jump cost",      "Energy used by a hyperjump",                              JUMP_COST,         0, 100, 5},
+  {"volcanoes",     "Volcanoes",      "Planets that start with a volcano (up to Planets)",       VOLCANOES,         0, MAX_COUNT_PLANETS, 1},
+  {"orb-wait",      "Orb wait",       "Seconds a volcano waits after its recharge orb is gone",  ORB_WAIT,          5, 120, 5},
 };
 
 void gameOptionsReset(int *values) {
   int i;
   for (i=0; i < OPTION_COUNT; i++) values[i] = gameOptions[i].defaultValue;
+}
+
+int gameOptionsFix(int *values) {
+  if (values[OPTION_VOLCANOES] <= values[OPTION_PLANETS]) return 0;
+  values[OPTION_VOLCANOES] = values[OPTION_PLANETS];
+  return 1;
 }
 
 int gameOptionClamp(int option, int value) {
@@ -52,6 +60,10 @@ int gameOptionsParse(int argc, char **argv, int first, int *values) {
       return 0;
     }
     values[option] = (int)value;
+  }
+  if (values[OPTION_VOLCANOES] > values[OPTION_PLANETS]) {
+    printf("--volcanoes can't be more than --planets (%d)\n", values[OPTION_PLANETS]);
+    return 0;
   }
   return 1;
 }

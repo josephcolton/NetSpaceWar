@@ -72,7 +72,7 @@ Run `NetSpaceWar` (on Windows, double-click `NetSpaceWar.exe`).
 </p>
 
 - **Host Game** starts a game on your computer. Choose your name, a port, and how many AI bots to add (up to 4; a game holds 5 ships). The screen shows the address other players can use to join. On Windows, allow the firewall prompt so they can reach you.
-  - **Game Settings** changes the rules for games you host: number of planets, gravity, missile life, top speed, crash and missile damage, and the energy cost of shots and hyperjumps. Changed values are highlighted, and **Reset to Defaults** puts them all back. Everyone who joins, bots included, gets the host's rules: players see them by holding S.
+  - **Game Settings** changes the rules for games you host: number of planets, gravity, missile life, top speed, crash and missile damage, the energy cost of shots and hyperjumps, how many planets start with volcanoes, and how long a volcano waits between recharge orbs. Changed values are highlighted, and **Reset to Defaults** puts them all back. Everyone who joins, bots included, gets the host's rules: players see them by holding S.
 - **Join Game** connects to someone else's game by address and port.
 
 <p align="center">
@@ -95,7 +95,7 @@ The programs also run on their own, for example to keep a dedicated server runni
 
 The server reports when players join and leave, and every death and respawn. Run `SpaceWarServer` with no arguments to list every rule option with its range and default.
 
-The AI hunts the nearest ship, leads its shots, steers clear of planets, and moves power between shields and energy. It plays under the same turn, thrust and fire limits as a human.
+The AI hunts the nearest ship, leads its shots, steers clear of planets, moves power between shields and energy, and goes after recharge orbs when it is running low. It plays under the same turn, thrust and fire limits as a human.
 
 ### Controls
 
@@ -117,5 +117,6 @@ The window can be resized; the game scales to fit.
 - Missiles cost 2 energy. Energy does not recharge on its own, but shields slowly do, so move power between them with Z and X.
 - A missile hit takes 25 shields. Below zero shields, your ship explodes.
 - Planets pull you in with gravity, and touching one does heavy damage.
+- Some planets have volcanoes that shoot out recharge orbs. Fly into one to refill your energy and shields completely. An orb is pulled by gravity like everything else: some escape their planet and drift away, others fall back. A planet destroys any orb that hits it, and an uncollected orb blinks and fades after a minute. Each volcano has one orb out at a time and waits 30 seconds (by default) after it is gone before erupting again.
 - The universe wraps around at the edges.
 - Scoring: 10 points for a hit, 100 for a kill, and -100 for dying (scores never go below 0). Hitting yourself scores nothing. Hold S to see everyone's score, kills and deaths; the scoreboard also appears while you wait to respawn.

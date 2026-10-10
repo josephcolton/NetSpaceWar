@@ -113,6 +113,7 @@ static void launcherLoadSettings(LauncherSettings *settings) {
   if (settings->bots < 0) settings->bots = 0;
   if (settings->bots > LAUNCHER_MAX_BOTS) settings->bots = LAUNCHER_MAX_BOTS;
   for (i=0; i < OPTION_COUNT; i++) settings->options[i] = gameOptionClamp(i, settings->options[i]);
+  gameOptionsFix(settings->options);
 }
 
 static void launcherSaveSettings(const LauncherSettings *settings) {
@@ -330,7 +331,7 @@ static void launcherBuildScreen(Launcher *l) {
   // Fields are rows of label + box; buttons are centered below them.
   // The settings screen has many rows, so they are packed closer.
   dense = (l->screen == SCREEN_SETTINGS);
-  y = (l->screen == SCREEN_MAIN) ? 220 : (l->screen == SCREEN_ABOUT) ? 392 : dense ? 84 : 124;
+  y = (l->screen == SCREEN_MAIN) ? 220 : (l->screen == SCREEN_ABOUT) ? 392 : dense ? 72 : 124;
   for (i=0; i < l->itemCount; i++) {
     LauncherItem *item = &l->items[i];
     if (item->kind == ITEM_BUTTON) {
@@ -342,8 +343,8 @@ static void launcherBuildScreen(Launcher *l) {
       item->box.w = 240;
     }
     item->box.y = y;
-    item->box.h = dense ? 24 : 28;
-    y += dense ? 29 : 40;
+    item->box.h = dense ? 22 : 28;
+    y += dense ? 25 : 40;
   }
   if (l->focus >= l->itemCount) l->focus = 0;
 }
@@ -610,6 +611,8 @@ int launcherRun() {
   while (l.running) {
     while (l.running && SDL_PollEvent(&event)) {
       launcherHandleEvent(&l, &event);
+      // Fewer planets than volcanoes takes the extra volcanoes away
+      gameOptionsFix(l.settings.options);
       // An action may have switched screens
       launcherBuildScreen(&l);
     }

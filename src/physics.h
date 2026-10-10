@@ -10,6 +10,9 @@ void shieldRestore();
 void physicsUpdatePositions();
 void physicsUpdateCollisions();
 void physicsUpdate();
+// Pick the starting volcanoes and time their first eruptions (after the planets exist)
+void volcanoInitialize();
+void volcanoUpdate();
 int inRange(double x1, double y1, double x2, double y2, double range);
 double xcoordLoop(double xcoord);
 double ycoordLoop(double ycoord);

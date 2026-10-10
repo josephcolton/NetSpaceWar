@@ -111,6 +111,12 @@ void physicsUpdatePositions() {
     sdataArrayMissiles[i]->ycoord = ycoordLoop(sdataArrayMissiles[i]->ycoord);
   }
 
+  // Update recharge orb positions
+  for (i=0; i < sdataCountOrbs; i++) {
+    sdataArrayOrbs[i]->xcoord = xcoordLoop(sdataArrayOrbs[i]->xcoord + sdataArrayOrbs[i]->xVelocity*PHYS_SECS_PER_UPDATE);
+    sdataArrayOrbs[i]->ycoord = ycoordLoop(sdataArrayOrbs[i]->ycoord + sdataArrayOrbs[i]->yVelocity*PHYS_SECS_PER_UPDATE);
+  }
+
 }
 
 double xcoordLoop(double xcoord) {
@@ -357,7 +363,7 @@ void physicsUpdateGravity() {
   double x1, x2, y1, y2;
   double range;
 
-  range = P_GUI_DEFAULT_PLANET_SIZE * P_GUI_DEFAULT_PLANET_SIZE * 2;
+  range = GRAVITY_RANGE;
   // Detect planets pull on ships
   for(i=0; i < sdataCountShips; i++) {
     // We do not want empty nodes
@@ -378,7 +384,7 @@ void physicsUpdateGravity() {
     }
   }
 
-  range = P_GUI_DEFAULT_PLANET_SIZE * P_GUI_DEFAULT_PLANET_SIZE * 2;
+  range = GRAVITY_RANGE;
   // Detect planets pull on missiles
   for(i=0; i < sdataCountMissiles; i++) {
     // We do not want empty nodes
@@ -398,6 +404,132 @@ void physicsUpdateGravity() {
     }
   }
 
+  // Planets pull on recharge orbs
+  for (i=0; i < sdataCountOrbs; i++) {
+    x1 = sdataArrayOrbs[i]->xcoord;
+    y1 = sdataArrayOrbs[i]->ycoord;
+    for (j=0; j < sdataCountPlanets; j++) {
+      x2 = sdataArrayPlanets[j]->xcoord;
+      y2 = sdataArrayPlanets[j]->ycoord;
+      if (inRange(x1, y1, x2, y2, range)) {
+	sdataArrayOrbs[i]->xVelocity += xcoordTowards(x1, y1, x2, y2);
+	sdataArrayOrbs[i]->yVelocity += ycoordTowards(x1, y1, x2, y2);
+      }
+    }
+  }
+
+}
+
+/* Volcanoes and recharge orbs */
+
+// Physics ticks until each planet's volcano erupts, by position in
+// sdataArrayPlanets (planets never move in the array). The count only runs
+// while the planet has no orb out.
+static int volcanoWait[MAX_COUNT_PLANETS];
+
+static double randUnit() {
+  return rand() / (RAND_MAX + 1.0);
+}
+
+static int planetIndex(object_t objectID) {
+  int i;
+  for (i=0; i < sdataCountPlanets; i++) {
+    if (sdataArrayPlanets[i]->objectID == objectID) return i;
+  }
+  return -1;
+}
+
+static int planetHasOrb(object_t objectID) {
+  int i;
+  for (i=0; i < sdataCountOrbs; i++) {
+    if (sdataArrayOrbs[i]->source == objectID) return 1;
+  }
+  return 0;
+}
+
+void volcanoInitialize() {
+  int i, n;
+  for (i=0; i < sdataCountPlanets; i++) {
+    // Spread out the first eruptions
+    volcanoWait[i] = ORB_TICKS(SERVER_OPTION(ORB_WAIT) * (0.25 + 0.75 * randUnit()));
+  }
+  // Pick which planets start with a volcano
+  for (n=0; n < SERVER_OPTION(VOLCANOES) && n < sdataCountPlanets; n++) {
+    do i = rand() % sdataCountPlanets; while (sdataArrayPlanets[i]->volcano);
+    sdataArrayPlanets[i]->volcano = 1;
+  }
+}
+
+// Remove the orb at index i; its volcano starts waiting for the next one
+static void orbRemove(int i) {
+  int planet = planetIndex(sdataArrayOrbs[i]->source);
+  if (planet >= 0) volcanoWait[planet] = ORB_TICKS(SERVER_OPTION(ORB_WAIT));
+  sdataDeleteOrb(sdataArrayOrbs[i]->objectID);
+}
+
+// Shoot an orb out of planet p in a random direction. Gravity weakens with
+// distance (1/r) out to GRAVITY_RANGE, so climbing out from r0 takes
+// sqrt(2 * gravity * ln(range / r0)). The orb gets a random speed around
+// that, so some escape and some fall back.
+static void volcanoErupt(int p) {
+  struct dataNodePlanets *planet = sdataArrayPlanets[p];
+  double angle = randUnit() * 2 * M_PI;
+  double r0 = P_GUI_DEFAULT_PLANET_SIZE + ORB_RADIUS + 0.5; // Clear of the planet's surface
+  double escape = sqrt(2.0 * SERVER_OPTION(GRAVITY) * log(GRAVITY_RANGE / r0));
+  double speed = escape * (ORB_SPEED_LOW + (ORB_SPEED_HIGH - ORB_SPEED_LOW) * randUnit());
+  double xcoord = xcoordLoop(planet->xcoord + cos(angle) * r0);
+  double ycoord = ycoordLoop(planet->ycoord + sin(angle) * r0);
+
+  if (speed < ORB_DRIFT_SPEED) speed = ORB_DRIFT_SPEED;
+  if (!sdataCreateOrb(sdataNewObjectID(), xcoord, ycoord, cos(angle) * speed, sin(angle) * speed, planet->objectID)) return;
+  sdataCreateExplosion(xcoord, ycoord); // A puff as it leaves the crater
+}
+
+// Erupt volcanoes, collect and destroy orbs, and fade old ones. Runs after
+// the other collisions, so a ship already destroyed this tick (negative
+// shields) can't be saved by an orb.
+void volcanoUpdate() {
+  int i, j, collected;
+  struct dataNodeOrbs *orb;
+  struct dataNodeShips *ship;
+
+  for (i=0; i < sdataCountOrbs; i++) {
+    orb = sdataArrayOrbs[i];
+
+    // A ship that touches the orb is fully recharged
+    collected = 0;
+    for (j=0; j < sdataCountShips && !collected; j++) {
+      ship = sdataArrayShips[j];
+      if (ship == NULL || ship->status == 0 || ship->shields < 0) continue;
+      if (inRange(orb->xcoord, orb->ycoord, ship->xcoord, ship->ycoord, ORB_RADIUS + P_GUI_SHIP_RADIUS_INTERNAL)) {
+	ship->energy = SHIP_MAX_ENERGY;
+	ship->shields = SHIP_MAX_SHIELDS;
+	serverLog("%s collected a recharge orb", serverClientName(ship->objectID));
+	collected = 1;
+      }
+    }
+
+    // Any planet destroys it, including the one it came from
+    for (j=0; j < sdataCountPlanets && !collected; j++) {
+      if (inRange(orb->xcoord, orb->ycoord, sdataArrayPlanets[j]->xcoord, sdataArrayPlanets[j]->ycoord,
+		  ORB_RADIUS + P_GUI_DEFAULT_PLANET_SIZE)) {
+	sdataCreateExplosion(orb->xcoord, orb->ycoord);
+	collected = 1;
+      }
+    }
+
+    // Uncollected orbs fade away
+    if (collected || --orb->life <= 0) {
+      orbRemove(i);
+      i--; // The last orb moved into this slot
+    }
+  }
+
+  for (i=0; i < sdataCountPlanets; i++) {
+    if (!sdataArrayPlanets[i]->volcano || planetHasOrb(sdataArrayPlanets[i]->objectID)) continue;
+    if (volcanoWait[i] > 0) volcanoWait[i]--;
+    else volcanoErupt(i);
+  }
 }
 
 void physicsUpdate() {
@@ -406,6 +538,7 @@ void physicsUpdate() {
   physicsUpdateGravity();
   physicsUpdatePositions();
   physicsUpdateCollisions();
+  volcanoUpdate();
   // Must run after collisions: if a ship were left with negative shields
   // until the next tick, a power transfer or shield restore in between
   // would clamp them back to 0 and the ship would survive.

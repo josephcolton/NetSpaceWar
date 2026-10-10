@@ -21,6 +21,8 @@
 #define AI_SHIELDS_SPARE     50   // ...if shields are above this
 #define AI_SHIELDS_LOW       40   // Move energy to shields below this shield level...
 #define AI_ENERGY_SPARE      40   // ...if energy is above this
+#define AI_RECHARGE_BELOW    120  // Go for a recharge orb when energy + shields (out of 200) is below this...
+#define AI_ORB_RANGE         80.0 // ...and one is this close
 
 // AI Client needs to select a target and work to eliminate it
 extern object_t clientAItargetID;

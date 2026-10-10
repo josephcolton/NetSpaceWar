@@ -113,6 +113,8 @@ void chandle_msg_staticobjs(int mysocket, void *packet, struct sockaddr_in serve
   int i, count, status;
   object_t objectID;
   double xcoord, ycoord;
+  uint8_t volcano;
+  struct dataNodePlanets *planet;
 
   if (DEBUG) printf("Packet Received: chandle_msg_staticobjs\n");
 
@@ -128,19 +130,25 @@ void chandle_msg_staticobjs(int mysocket, void *packet, struct sockaddr_in serve
   if (count < 0) count = 0;
   if (count > MAX_COUNT_PLANETS) count = MAX_COUNT_PLANETS;
 
-  // Gather planets from packet.
+  // Gather planets from packet. The server sends the list again when a
+  // planet changes, so update planets we already have.
   for(i=0; i < count; i++) {
     objectID = ((struct msg_staticobjs *)packet)->planets[i].objectID;
+    volcano = ((struct msg_staticobjs *)packet)->planets[i].volcano;
     xcoord = ((struct msg_staticobjs *)packet)->planets[i].xcoord;
     ycoord = ((struct msg_staticobjs *)packet)->planets[i].ycoord;
     if (DEBUG) printf("  packet->planet[%d].objectID = %d\n", i, objectID);
     if (DEBUG) printf("  packet->planet[%d].xcoord = %.2f\n", i, xcoord);
     if (DEBUG) printf("  packet->planet[%d].ycoord = %.2f\n", i, ycoord);
     // Create the planet and check status
-    status = cdataCreatePlanet(objectID, xcoord, ycoord);
-    if (status == SW_FALSE) {
-      if (DEBUG) printf("  ** Problem Creating Planet\n");
+    if (cdataLookupPlanets(objectID) == NULL) {
+      status = cdataCreatePlanet(objectID, xcoord, ycoord);
+      if (status == SW_FALSE) {
+        if (DEBUG) printf("  ** Problem Creating Planet\n");
+      }
     }
+    planet = cdataLookupPlanets(objectID);
+    if (planet != NULL) planet->volcano = volcano;
   }
 }
 
@@ -423,6 +431,17 @@ void chandle_msg_gameoptions(int mysocket, void *packet, struct sockaddr_in serv
   cdataOptionsReceived = 1;
 }
 
+void chandle_msg_updateorbs(int mysocket, void *packet, struct sockaddr_in server_addr) {
+  int count = ((struct msg_updateorbs *)packet)->obj_count;
+
+  if (((struct msg_updateorbs *)packet)->mtype != MSG_UPDATEORBS) return;
+  // Never read past the receive buffer, whatever the packet claims
+  if (count < 0) count = 0;
+  if (count > MAX_COUNT_ORBS) count = MAX_COUNT_ORBS;
+  memcpy(cdataOrbs, ((struct msg_updateorbs *)packet)->orbs, sizeof(struct dataNodeOrbs) * count);
+  cdataCountOrbs = count;
+}
+
 void chandle_msg_deleteobj(int mysocket, void *packet, struct sockaddr_in server_addr) {
   message_t mtype;
   data_t object_type;
@@ -676,6 +695,7 @@ message_t clientReceive(int mysocket) {
   if (mtype == MSG_SCOREBOARD)     chandle_msg_scoreboard(mysocket, packet, server_addr);
   if (mtype == MSG_DELETEOBJ)      chandle_msg_deleteobj(mysocket, packet, server_addr);
   if (mtype == MSG_GAMEOPTIONS)    chandle_msg_gameoptions(mysocket, packet, server_addr);
+  if (mtype == MSG_UPDATEORBS)     chandle_msg_updateorbs(mysocket, packet, server_addr);
 
   free(packet);
   return mtype;

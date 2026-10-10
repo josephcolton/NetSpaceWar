@@ -32,6 +32,7 @@ void ssend_msg_staticobjs(int mysocket, struct sockaddr_in client_addr);
 void ssend_msg_clientinfo(int mysocket, struct sockaddr_in client_addr);
 void ssend_msg_updateplayers(int mysocket, struct sockaddr_in client_addr);
 void ssend_msg_updateobjects(int mysocket, struct sockaddr_in client_addr);
+void ssend_msg_updateorbs(int mysocket, struct sockaddr_in client_addr);
 void ssend_msg_explosion(int mysocket, struct sockaddr_in client_addr, double xcoord, double ycoord);
 void ssend_msg_clientlist(int mysocket, struct sockaddr_in client_addr);
 void ssend_msg_scoreboard(int mysocket, struct sockaddr_in client_addr);
@@ -41,6 +42,7 @@ void ssend_msg_deleteobj(int mysocket, struct sockaddr_in client_addr, data_t ob
 /* Broadcast Messages */
 void broadcastUpdatePlayers();
 void broadcastUpdateMissiles();
+void broadcastUpdateOrbs();
 void broadcastScoreboard();
 void broadcastDeleteMissile(object_t objectID);
 void broadcastDeleteShip(object_t objectID);

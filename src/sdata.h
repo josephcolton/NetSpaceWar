@@ -14,6 +14,7 @@ extern int sdataCountExplosions;
 extern int sdataCountShips;
 extern int sdataCountMissiles;
 extern int sdataCountPlanets;
+extern int sdataCountOrbs;
 
 // Global general functions
 object_t sdataNewObjectID();
@@ -36,6 +37,7 @@ extern struct dataNodeExplosions *sdataArrayExplosions[MAX_COUNT_EXPLOSIONS];
 extern struct dataNodeShips *sdataArrayShips[MAX_COUNT_SHIPS];
 extern struct dataNodeMissiles *sdataArrayMissiles[MAX_COUNT_MISSILES];
 extern struct dataNodePlanets *sdataArrayPlanets[MAX_COUNT_PLANETS];
+extern struct dataNodeOrbs *sdataArrayOrbs[MAX_COUNT_ORBS];
 extern int scoreChanged; // Set when the scoreboard needs sending
 
 // Keep track of scores
@@ -52,11 +54,13 @@ int sdataCreateExplosion(double xcoord, double ycoord);
 int sdataCreateShip(object_t objectID, double xcoord, double ycoord);
 int sdataCreateMissile(object_t objectID, double xcoord, double ycoord, double orientation, double xVelocity, double yVelocity, object_t owner);
 int sdataCreatePlanet(object_t objectID, double xcoord, double ycoord);
+int sdataCreateOrb(object_t objectID, double xcoord, double ycoord, double xVelocity, double yVelocity, object_t source);
 // Deletion Functions
 void sdataDeleteClient(object_t objectID);
 void sdataDeleteShip(object_t objectID);
 void sdataDeleteMissile(object_t objectID);
 void sdataDeletePlanet(object_t objectID);
+void sdataDeleteOrb(object_t objectID);
 // Update Functions
 void sdataUpdateAll();
 int sdataUpdateShip(object_t objectID, double xcoord, double ycoord);
