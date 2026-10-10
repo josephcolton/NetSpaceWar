@@ -110,7 +110,7 @@ void chandle_msg_logoutack(int mysocket, void *packet, struct sockaddr_in server
 
 void chandle_msg_staticobjs(int mysocket, void *packet, struct sockaddr_in server_addr) {
   message_t mtype;
-  int i, count, status;
+  int i, j, count, status;
   object_t objectID;
   double xcoord, ycoord;
   uint8_t volcano;
@@ -148,7 +148,14 @@ void chandle_msg_staticobjs(int mysocket, void *packet, struct sockaddr_in serve
       }
     }
     planet = cdataLookupPlanets(objectID);
-    if (planet != NULL) planet->volcano = volcano;
+    if (planet == NULL) continue;
+    // An asteroid woke or put out its volcano: animate the change
+    if (planet->volcano != volcano) {
+      for (j=0; j < cdataCountPlanets; j++) {
+        if (cdataArrayPlanets[j] == planet) cdataPlanetChanged[j] = platformNow();
+      }
+    }
+    planet->volcano = volcano;
   }
 }
 
@@ -431,6 +438,17 @@ void chandle_msg_gameoptions(int mysocket, void *packet, struct sockaddr_in serv
   cdataOptionsReceived = 1;
 }
 
+void chandle_msg_updateasteroids(int mysocket, void *packet, struct sockaddr_in server_addr) {
+  int count = ((struct msg_updateasteroids *)packet)->obj_count;
+
+  if (((struct msg_updateasteroids *)packet)->mtype != MSG_UPDATEASTEROIDS) return;
+  // Never read past the receive buffer, whatever the packet claims
+  if (count < 0) count = 0;
+  if (count > MAX_COUNT_ASTEROIDS) count = MAX_COUNT_ASTEROIDS;
+  memcpy(cdataAsteroids, ((struct msg_updateasteroids *)packet)->asteroids, sizeof(struct dataNodeAsteroids) * count);
+  cdataCountAsteroids = count;
+}
+
 void chandle_msg_updateorbs(int mysocket, void *packet, struct sockaddr_in server_addr) {
   int count = ((struct msg_updateorbs *)packet)->obj_count;
 
@@ -696,6 +714,7 @@ message_t clientReceive(int mysocket) {
   if (mtype == MSG_DELETEOBJ)      chandle_msg_deleteobj(mysocket, packet, server_addr);
   if (mtype == MSG_GAMEOPTIONS)    chandle_msg_gameoptions(mysocket, packet, server_addr);
   if (mtype == MSG_UPDATEORBS)     chandle_msg_updateorbs(mysocket, packet, server_addr);
+  if (mtype == MSG_UPDATEASTEROIDS) chandle_msg_updateasteroids(mysocket, packet, server_addr);
 
   free(packet);
   return mtype;

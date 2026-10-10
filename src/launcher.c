@@ -513,7 +513,9 @@ static void launcherDrawItem(Launcher *l, int index) {
     while (gui_text_width(2.0f, text) > item->box.w - 12) memmove(text, text + 1, strlen(text));
     gui_text(item->box.x + 6, textY, 2.0f, 0xffffff, text);
   } else {
-    snprintf(text, LEN, "<  %d  >", *item->value);
+    // Game options may show a name (None, Light...) instead of the number
+    if (item->help) snprintf(text, LEN, "<  %s  >", gameOptionText(item->value - l->settings.options, *item->value));
+    else snprintf(text, LEN, "<  %d  >", *item->value);
     // Rules changed from the default stand out
     gui_text(item->box.x + (item->box.w - gui_text_width(2.0f, text)) / 2, textY, 2.0f,
              (item->help && *item->value != launcherOptionDefault(l, item)) ? COLOR_FOCUS : 0xffffff, text);
@@ -581,8 +583,9 @@ static void launcherDraw(Launcher *l) {
 
   item = &l->items[l->focus];
   if (l->screen == SCREEN_SETTINGS && item->help) {
-    snprintf(info, LEN, "%s (default %d)", item->help, launcherOptionDefault(l, item));
-    gui_text_centered(410, 1.0f, COLOR_TEXT, info);
+    snprintf(info, LEN, "%s (default %s)", item->help,
+             gameOptionText(item->value - l->settings.options, launcherOptionDefault(l, item)));
+    gui_text_centered(414, 1.0f, COLOR_TEXT, info);
   }
 
   if (l->status[0]) gui_text_centered(430, 1.0f, COLOR_ERROR, l->status);

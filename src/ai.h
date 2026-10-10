@@ -23,6 +23,7 @@
 #define AI_ENERGY_SPARE      40   // ...if energy is above this
 #define AI_RECHARGE_BELOW    120  // Go for a recharge orb when energy + shields (out of 200) is below this...
 #define AI_ORB_RANGE         80.0 // ...and one is this close
+#define AI_ASTEROID_MARGIN   6.0  // Steer to pass at least this far from an asteroid's edge
 
 // AI Client needs to select a target and work to eliminate it
 extern object_t clientAItargetID;

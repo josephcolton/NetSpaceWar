@@ -71,6 +71,8 @@ void clientAIinitAI() {
   aiLastJump = 0.0;
 }
 
+static double aiLeadAngle(double xcoord, double ycoord, double xVelocity, double yVelocity);
+
 object_t clientAIselectTarget() {
   int i;
   object_t closeID = 0;
@@ -104,17 +106,22 @@ object_t clientAIselectTarget() {
 
 double clientAIobjectDirection(object_t objectID) {
   struct dataNodeShips *target;
-  double dx, dy, rvx, rvy;
-  double a, b, c, disc, t, t1, t2;
 
   target = cdataLookupShips(objectID);
   if (clientShip == NULL || target == NULL) return 0.0;
+  return aiLeadAngle(target->xcoord, target->ycoord, target->xVelocity, target->yVelocity);
+}
+
+// Angle to fire at to hit something at this position and velocity
+static double aiLeadAngle(double xcoord, double ycoord, double xVelocity, double yVelocity) {
+  double dx, dy, rvx, rvy;
+  double a, b, c, disc, t, t1, t2;
 
   // Target position and velocity relative to our ship
-  dx = aiWrapDelta(clientShip->xcoord, target->xcoord, SPACE_MIN_XCOORD, SPACE_MAX_XCOORD);
-  dy = aiWrapDelta(clientShip->ycoord, target->ycoord, SPACE_MIN_YCOORD, SPACE_MAX_YCOORD);
-  rvx = target->xVelocity - clientShip->xVelocity;
-  rvy = target->yVelocity - clientShip->yVelocity;
+  dx = aiWrapDelta(clientShip->xcoord, xcoord, SPACE_MIN_XCOORD, SPACE_MAX_XCOORD);
+  dy = aiWrapDelta(clientShip->ycoord, ycoord, SPACE_MIN_YCOORD, SPACE_MAX_YCOORD);
+  rvx = xVelocity - clientShip->xVelocity;
+  rvy = yVelocity - clientShip->yVelocity;
 
   // Missiles inherit our velocity, so relative to us they travel at
   // MISSILE_EXTRA_SPEED. Solve |d + rv*t| = MISSILE_EXTRA_SPEED*t for
@@ -192,6 +199,56 @@ static struct dataNodePlanets *aiPlanetThreat() {
   return closest;
 }
 
+// The asteroid we will pass closest to within AI_PLANET_LOOKAHEAD seconds,
+// if that pass is too close, or NULL. Asteroids move, so this uses our
+// velocity relative to each one. *missX, *missY is where it will be
+// relative to us at that moment: the direction to get further away.
+static struct dataNodeAsteroids *aiAsteroidThreat(double *missX, double *missY) {
+  int i;
+  double px, py, vx, vy, speed2, t, dist;
+  double closeDist = ASTEROID_RADIUS + P_GUI_SHIP_RADIUS_INTERNAL + AI_ASTEROID_MARGIN;
+  struct dataNodeAsteroids *closest = NULL;
+
+  if (CLIENT_OPTION(CRASH_DMG) == 0) return NULL;
+  for (i=0; i < cdataCountAsteroids; i++) {
+    px = aiWrapDelta(cdataAsteroids[i].xcoord, clientShip->xcoord, SPACE_MIN_XCOORD, SPACE_MAX_XCOORD);
+    py = aiWrapDelta(cdataAsteroids[i].ycoord, clientShip->ycoord, SPACE_MIN_YCOORD, SPACE_MAX_YCOORD);
+    vx = clientShip->xVelocity - cdataAsteroids[i].xVelocity;
+    vy = clientShip->yVelocity - cdataAsteroids[i].yVelocity;
+    speed2 = vx * vx + vy * vy;
+    t = (speed2 > 0.000001) ? -(px * vx + py * vy) / speed2 : 0.0;
+    if (t < 0.0) t = 0.0;
+    if (t > AI_PLANET_LOOKAHEAD) t = AI_PLANET_LOOKAHEAD;
+    px += vx * t;
+    py += vy * t;
+    dist = sqrt(px * px + py * py);
+    if (dist < closeDist) {
+      closeDist = dist;
+      closest = &cdataAsteroids[i];
+      *missX = px;
+      *missY = py;
+    }
+  }
+  return closest;
+}
+
+// The closest asteroid in firing range, to shoot at when no ship is, or NULL
+static struct dataNodeAsteroids *aiAsteroidTarget(double *distance) {
+  int i;
+  double dist;
+  struct dataNodeAsteroids *closest = NULL;
+
+  *distance = aiFireRange();
+  for (i=0; i < cdataCountAsteroids; i++) {
+    dist = aiDistanceTo(cdataAsteroids[i].xcoord, cdataAsteroids[i].ycoord);
+    if (dist < *distance) {
+      *distance = dist;
+      closest = &cdataAsteroids[i];
+    }
+  }
+  return closest;
+}
+
 // The closest recharge orb worth chasing, or NULL when we don't need one
 static struct dataNodeOrbs *aiWantedOrb() {
   int i;
@@ -214,6 +271,9 @@ void clientAIupdate(int mysocket, struct sockaddr_in server_addr) {
   struct dataNodeShips *target = NULL;
   struct dataNodePlanets *planet;
   struct dataNodeOrbs *orb;
+  struct dataNodeAsteroids *rock, *threat;
+  double rockDist, missX = 0.0, missY = 0.0, aimRadius;
+  int aiming;
   double dx, dy, dist = 0.0;
   double wantX = 0.0, wantY = 0.0; // Velocity we want to have
   double fixX, fixY, fixSpeed;
@@ -260,6 +320,19 @@ void clientAIupdate(int mysocket, struct sockaddr_in server_addr) {
     }
   }
 
+  // With no ship in firing range, shoot at an asteroid instead (without chasing it)
+  aiming = (target != NULL);
+  aimRadius = P_GUI_SHIP_RADIUS_INTERNAL;
+  if (target == NULL || dist >= aiFireRange()) {
+    rock = aiAsteroidTarget(&rockDist);
+    if (rock != NULL) {
+      aimAngle = aiLeadAngle(rock->xcoord, rock->ycoord, rock->xVelocity, rock->yVelocity);
+      dist = rockDist;
+      aimRadius = ASTEROID_RADIUS;
+      aiming = 1;
+    }
+  }
+
   // Running low: head for where a recharge orb will be when we get there.
   // Keep shooting at the target on the way.
   orb = aiWantedOrb();
@@ -285,16 +358,24 @@ void clientAIupdate(int mysocket, struct sockaddr_in server_addr) {
     wantY = dy / sqrt(dx * dx + dy * dy) * aiCruiseSpeed();
   }
 
+  // Then asteroids: move to widen the miss
+  threat = (planet == NULL) ? aiAsteroidThreat(&missX, &missY) : NULL;
+  if (threat != NULL) {
+    if (missX == 0.0 && missY == 0.0) missX = 1.0;
+    wantX = missX / sqrt(missX * missX + missY * missY) * aiCruiseSpeed();
+    wantY = missY / sqrt(missX * missX + missY * missY) * aiCruiseSpeed();
+  }
+
   // Thrust is the only way to change velocity, so to reach the wanted
   // velocity we point along the difference and burn.
   fixX = wantX - clientShip->xVelocity;
   fixY = wantY - clientShip->yVelocity;
   fixSpeed = sqrt(fixX * fixX + fixY * fixY);
-  correcting = (fixSpeed > AI_VELOCITY_SLOP || (planet != NULL && fixSpeed > 0.5));
+  correcting = (fixSpeed > AI_VELOCITY_SLOP || ((planet != NULL || threat != NULL) && fixSpeed > 0.5));
 
   if (correcting) {
     heading = atan2(fixY, fixX);
-  } else if (target != NULL) {
+  } else if (aiming) {
     heading = aimAngle;
   } else {
     heading = clientShip->orientation;
@@ -317,11 +398,11 @@ void clientAIupdate(int mysocket, struct sockaddr_in server_addr) {
   }
 
   // Fire whenever the gun lines up, even while maneuvering
-  if (target != NULL && dist < aiFireRange() &&
+  if (aiming && dist < aiFireRange() &&
       now - aiLastShot >= P_GUI_SECONDS_PER_SHOT &&
       clientShip->energy >= CLIENT_OPTION(MISSILE_COST) + AI_ENERGY_RESERVE) {
     // Accept a miss angle that still puts the missile on the target's hull
-    tolerance = atan2(P_GUI_SHIP_RADIUS_INTERNAL + P_GUI_SHOT_RADIUS_INTERNAL, dist);
+    tolerance = atan2(aimRadius + P_GUI_SHOT_RADIUS_INTERNAL, dist);
     if (fabs(aiNormalizeAngle(aimAngle - clientShip->orientation - turn)) < tolerance) {
       csend_msg_clientupdate(mysocket, server_addr, ACTION_FIRE, 0.0, 0.0, 0);
       aiLastShot = now;

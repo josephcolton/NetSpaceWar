@@ -12,6 +12,7 @@ int sdataCountShips;
 int sdataCountMissiles;
 int sdataCountPlanets;
 int sdataCountOrbs;
+int sdataCountAsteroids;
 double lastTime;
 struct dataNodeClients *sdataArrayClients[MAX_COUNT_CLIENTS];
 struct dataNodeExplosions *sdataArrayExplosions[MAX_COUNT_EXPLOSIONS];
@@ -19,6 +20,7 @@ struct dataNodeShips *sdataArrayShips[MAX_COUNT_SHIPS];
 struct dataNodeMissiles *sdataArrayMissiles[MAX_COUNT_MISSILES];
 struct dataNodePlanets *sdataArrayPlanets[MAX_COUNT_PLANETS];
 struct dataNodeOrbs *sdataArrayOrbs[MAX_COUNT_ORBS];
+struct dataNodeAsteroids *sdataArrayAsteroids[MAX_COUNT_ASTEROIDS];
 int scoreChanged;
 
 /* Server Data Access Functions */
@@ -48,6 +50,7 @@ void sdataInitialize() {
   for (i=0; i < MAX_COUNT_MISSILES; i++) sdataArrayMissiles[i] = NULL;
   for (i=0; i < MAX_COUNT_PLANETS; i++) sdataArrayPlanets[i] = NULL;
   for (i=0; i < MAX_COUNT_ORBS; i++) sdataArrayOrbs[i] = NULL;
+  for (i=0; i < MAX_COUNT_ASTEROIDS; i++) sdataArrayAsteroids[i] = NULL;
   scoreChanged = 0;
 
   // Initialize all of the object counts
@@ -56,6 +59,7 @@ void sdataInitialize() {
   sdataCountMissiles = 0;
   sdataCountPlanets = 0;
   sdataCountOrbs = 0;
+  sdataCountAsteroids = 0;
 }
 
 int lastTimeLeft(int usec) {
@@ -301,6 +305,21 @@ int sdataCreateOrb(object_t objectID, double xcoord, double ycoord, double xVelo
   return SW_TRUE;
 }
 
+int sdataCreateAsteroid(object_t objectID, double xcoord, double ycoord, double xVelocity, double yVelocity, int life) {
+  struct dataNodeAsteroids *newNode;
+  if (sdataCountAsteroids >= MAX_COUNT_ASTEROIDS) return SW_FALSE;
+  newNode = (struct dataNodeAsteroids *)malloc(sizeof(struct dataNodeAsteroids));
+  newNode->objectID = objectID;
+  newNode->xcoord = xcoord;
+  newNode->ycoord = ycoord;
+  newNode->xVelocity = xVelocity;
+  newNode->yVelocity = yVelocity;
+  newNode->hp = ASTEROID_HP;
+  newNode->life = life;
+  sdataArrayAsteroids[sdataCountAsteroids++] = newNode;
+  return SW_TRUE;
+}
+
 // Deletion functions
 void sdataDeleteClient(object_t objectID) {
   int i;
@@ -434,6 +453,18 @@ void sdataDeleteOrb(object_t objectID) {
     // Move the last orb into the gap
     sdataArrayOrbs[i] = sdataArrayOrbs[--sdataCountOrbs];
     sdataArrayOrbs[sdataCountOrbs] = NULL;
+    return;
+  }
+}
+
+// Like orbs, clients drop asteroids missing from the next list
+void sdataDeleteAsteroid(object_t objectID) {
+  int i;
+  for (i=0; i < sdataCountAsteroids; i++) {
+    if (sdataArrayAsteroids[i]->objectID != objectID) continue;
+    free(sdataArrayAsteroids[i]);
+    sdataArrayAsteroids[i] = sdataArrayAsteroids[--sdataCountAsteroids];
+    sdataArrayAsteroids[sdataCountAsteroids] = NULL;
     return;
   }
 }

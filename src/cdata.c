@@ -16,6 +16,9 @@ int cdataCountMissiles;
 int cdataCountPlanets;
 struct dataNodeOrbs cdataOrbs[MAX_COUNT_ORBS];
 int cdataCountOrbs;
+struct dataNodeAsteroids cdataAsteroids[MAX_COUNT_ASTEROIDS];
+int cdataCountAsteroids;
+double cdataPlanetChanged[MAX_COUNT_PLANETS];
 struct wireScore cdataScores[MAX_COUNT_CLIENTS];
 int cdataCountScores;
 int cdataOptions[OPTION_COUNT];
@@ -58,6 +61,8 @@ void cdataInitialize() {
   cdataCountMissiles = 0;
   cdataCountPlanets = 0;
   cdataCountOrbs = 0;
+  cdataCountAsteroids = 0;
+  for (i=0; i < MAX_COUNT_PLANETS; i++) cdataPlanetChanged[i] = 0.0;
   cdataCountScores = 0;
 
   // Rules are the defaults until the server says otherwise

@@ -73,7 +73,28 @@
 #define ORB_SPEED_LOW    0.9  // Launch speed range, as a fraction of the speed to escape
 #define ORB_SPEED_HIGH   1.1  // the volcano's gravity: some orbs escape and some fall back
 #define ORB_DRIFT_SPEED  3.0  // Slowest launch, so orbs still move when gravity is off
+#define VOLCANO_WAKE     5    // Seconds before a volcano woken by an asteroid erupts
 #define ORB_TICKS(secs)  ((int)((secs) / PHYS_SECS_PER_UPDATE))
+
+/* Asteroids drift in from outside everyone's view */
+#define ASTEROIDS        0    // Frequency level (0 = none); see ASTEROID_INTERVALS
+#define ASTEROID_LEVELS  6
+#define ASTEROID_INTERVALS {0, 120, 60, 40, 25, 12} // Seconds between asteroids at each level
+#define ASTEROID_RADIUS  2.5
+#define ASTEROID_HP      100
+#define ASTEROID_SPEED_MIN 3.0
+#define ASTEROID_SPEED_MAX 6.0
+#define ASTEROID_TRIP    200.0 // Distance an asteroid travels before it leaves (once out of sight)
+#define ASTEROID_GRAVITY 0.25  // Pull, as a fraction of a planet's...
+#define ASTEROID_GRAVITY_RANGE (GRAVITY_RANGE / 2) // ...within this distance
+#define ASTEROID_TOGGLE_CHANCE 0.35 // Chance an asteroid hitting a planet adds or removes its volcano
+#define POINTS_ASTEROID_HIT  10
+#define POINTS_ASTEROID_KILL 100
+// Half the size of a player's view, in internal units (the screen is
+// P_GUI_SHIP_RADIUS_PER_SCRH tall and 4:3)
+#define VIEW_HALF_H      (P_GUI_SHIP_RADIUS_PER_SCRH / 2)
+#define VIEW_HALF_W      (VIEW_HALF_H * 4 / 3)
+#define STATICOBJS_TICKS 40   // Resend the planet list this often, in case a change was lost
 
 /* Point Assignments */
 #define POINTS_HIT       10
@@ -88,6 +109,7 @@
 #define MAX_COUNT_MISSILES   50
 #define MAX_COUNT_PLANETS    5
 #define MAX_COUNT_ORBS       MAX_COUNT_PLANETS // One per volcano
+#define MAX_COUNT_ASTEROIDS  8
 
 /* Define Status Codes */
 #define STATUS_OKAY    0
@@ -121,6 +143,7 @@
 #define MSG_DELETEOBJ      14
 #define MSG_GAMEOPTIONS    15
 #define MSG_UPDATEORBS     16
+#define MSG_UPDATEASTEROIDS 17
 
 /* Define Actions */
 #define ACTION_THRUST   0
@@ -267,6 +290,16 @@ struct dataNodeOrbs {
   int32_t life;    // Physics ticks until it fades away
 } packed;
 
+struct dataNodeAsteroids {
+  object_t objectID; // Also picks its shape and spin on the client
+  double xcoord;
+  double ycoord;
+  double xVelocity;
+  double yVelocity;
+  int32_t hp;
+  int32_t life;      // Physics ticks until it may leave (once nobody can see it)
+} packed;
+
 /* Basic Message Struct */
 struct msg_basic {
   message_t mtype;
@@ -326,6 +359,13 @@ struct msg_updateorbs {
   message_t mtype; /* = MSG_UPDATEORBS */
   int32_t obj_count;
   struct dataNodeOrbs orbs[]; // obj_count entries
+} packed;
+
+// Every asteroid; the list replaces the client's previous one
+struct msg_updateasteroids {
+  message_t mtype; /* = MSG_UPDATEASTEROIDS */
+  int32_t obj_count;
+  struct dataNodeAsteroids asteroids[]; // obj_count entries
 } packed;
 
 // Report explosion location to client
@@ -405,6 +445,8 @@ _Static_assert(sizeof(struct dataNodeMissiles) == 52, "dataNodeMissiles wire siz
 _Static_assert(sizeof(struct dataNodePlanets) == 19, "dataNodePlanets wire size");
 _Static_assert(sizeof(struct dataNodeOrbs) == 40, "dataNodeOrbs wire size");
 _Static_assert(sizeof(struct msg_updateorbs) == 6, "msg_updateorbs wire size");
+_Static_assert(sizeof(struct dataNodeAsteroids) == 42, "dataNodeAsteroids wire size");
+_Static_assert(sizeof(struct msg_updateasteroids) == 6, "msg_updateasteroids wire size");
 _Static_assert(sizeof(struct msg_clientinfo) == 56, "msg_clientinfo wire size");
 _Static_assert(sizeof(struct msg_updateplayers) == 6, "msg_updateplayers wire size");
 _Static_assert(sizeof(struct msg_clientupdate) == 24, "msg_clientupdate wire size");

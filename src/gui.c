@@ -21,8 +21,12 @@ void gui_draw_hud(GuiArea *buffer, int shield, int energy);
 void gui_draw_radar(GuiArea *buffer);
 void gui_draw_stars(GuiArea *buffer, double mv_x, double mv_y);
 void gui_draw_planet(GuiArea *buffer, double rel_x, double rel_y, double radius);
-static void gui_draw_volcano(GuiArea *buffer, double rel_x, double rel_y);
+static void gui_draw_volcano(GuiArea *buffer, double rel_x, double rel_y, double size);
+static void gui_draw_volcano_change(GuiArea *buffer, double rel_x, double rel_y, double progress, int woke);
 static void gui_draw_orb(GuiArea *buffer, double rel_x, double rel_y, int life);
+static void gui_draw_asteroid(GuiArea *buffer, double rel_x, double rel_y, object_t objectID, int hp);
+
+#define GUI_VOLCANO_CHANGE 1.5 // Seconds a volcano takes to appear or die out
 static void gui_draw_score();
 static void gui_draw_scoreboard();
 
@@ -123,6 +127,7 @@ void gui_update_display() {
   int other_col = gui_makecol(255,160,160);
   int i;
   double exp_norm,fade;
+  double since; // Seconds since a planet's volcano changed
 
   if (DEBUG) printf("gui_update_display()\n");
 
@@ -174,7 +179,23 @@ void gui_update_display() {
 
 
     gui_draw_planet(scr_buff, xcoord ,ycoord, P_GUI_DEFAULT_PLANET_SIZE);
-    if (cdataArrayPlanets[i]->volcano) gui_draw_volcano(scr_buff, xcoord, ycoord);
+    since = cdataPlanetChanged[i] > 0 ? platformNow() - cdataPlanetChanged[i] : GUI_VOLCANO_CHANGE;
+    if (since < GUI_VOLCANO_CHANGE) {
+      gui_draw_volcano_change(scr_buff, xcoord, ycoord, since / GUI_VOLCANO_CHANGE, cdataArrayPlanets[i]->volcano);
+    } else if (cdataArrayPlanets[i]->volcano) {
+      gui_draw_volcano(scr_buff, xcoord, ycoord, 1.0);
+    }
+  }
+
+  // Draw Asteroids
+  for (i=0; i < cdataCountAsteroids; i++) {
+    xcoord = cdataAsteroids[i].xcoord - player_x;
+    if (xcoord < SPACE_MIN_XCOORD) xcoord += (SPACE_MAX_XCOORD - SPACE_MIN_XCOORD);
+    if (xcoord > SPACE_MAX_XCOORD) xcoord -= (SPACE_MAX_XCOORD - SPACE_MIN_XCOORD);
+    ycoord = cdataAsteroids[i].ycoord - player_y;
+    if (ycoord < SPACE_MIN_YCOORD) ycoord += (SPACE_MAX_YCOORD - SPACE_MIN_YCOORD);
+    if (ycoord > SPACE_MAX_YCOORD) ycoord -= (SPACE_MAX_YCOORD - SPACE_MIN_YCOORD);
+    gui_draw_asteroid(scr_buff, xcoord, ycoord, cdataAsteroids[i].objectID, cdataAsteroids[i].hp);
   }
 
   // Draw Ships
@@ -475,26 +496,77 @@ void gui_draw_planet(GuiArea *buffer, double rel_x, double rel_y, double radius)
 
 // A volcano in the middle of a planet, seen from above: lava cracks running
 // out from a dark crater rim around slowly pulsing lava
-static void gui_draw_volcano(GuiArea *buffer, double rel_x, double rel_y) {
+// size (0 to 1) shrinks it, for the appear and die out animation.
+static void gui_draw_volcano(GuiArea *buffer, double rel_x, double rel_y, double size) {
   double scale = P_GUI_RADIUS_FUNC(buffer) / P_GUI_SHIP_RADIUS_INTERNAL; // Pixels per internal unit
   double cx = buffer->w/2 + rel_x*scale, cy = buffer->h/2 + rel_y*scale;
+  double s = scale * size;
   double glow = 0.5 + 0.5 * sin(SDL_GetTicks() / 1000.0 * M_PI); // Two second pulse
   int lava = gui_makecol(255, 90 + (int)(90*glow), (int)(40*glow));
   int crack = gui_makecol(190, 60 + (int)(50*glow), 0);
   double a;
   int k;
 
+  if (size <= 0.0) return;
   // Each crack is two jagged segments
   for (k=0; k < 6; k++) {
     a = k * M_PI / 3 + 0.3;
-    gui_line(buffer, cx + cos(a)*1.6*scale, cy + sin(a)*1.6*scale,
-	     cx + cos(a + 0.18)*2.7*scale, cy + sin(a + 0.18)*2.7*scale, crack);
-    gui_line(buffer, cx + cos(a + 0.18)*2.7*scale, cy + sin(a + 0.18)*2.7*scale,
-	     cx + cos(a - 0.05)*3.7*scale, cy + sin(a - 0.05)*3.7*scale, crack);
+    gui_line(buffer, cx + cos(a)*1.6*s, cy + sin(a)*1.6*s,
+	     cx + cos(a + 0.18)*2.7*s, cy + sin(a + 0.18)*2.7*s, crack);
+    gui_line(buffer, cx + cos(a + 0.18)*2.7*s, cy + sin(a + 0.18)*2.7*s,
+	     cx + cos(a - 0.05)*3.7*s, cy + sin(a - 0.05)*3.7*s, crack);
   }
-  gui_circlefill(buffer, cx, cy, 2.0*scale, gui_makecol(85, 60, 40));
-  gui_circle(buffer, cx, cy, 2.0*scale, gui_makecol(55, 38, 25));
-  gui_circlefill(buffer, cx, cy, 1.2*scale, lava);
+  gui_circlefill(buffer, cx, cy, 2.0*s, gui_makecol(85, 60, 40));
+  gui_circle(buffer, cx, cy, 2.0*s, gui_makecol(55, 38, 25));
+  gui_circlefill(buffer, cx, cy, 1.2*s, lava);
+}
+
+// An asteroid strike just changed this planet. progress runs 0 to 1.
+// Waking: a hot shockwave spreads over the planet as the volcano grows.
+// Dying out: the volcano shrinks under a spreading ring of gray ash.
+static void gui_draw_volcano_change(GuiArea *buffer, double rel_x, double rel_y, double progress, int woke) {
+  double scale = P_GUI_RADIUS_FUNC(buffer) / P_GUI_SHIP_RADIUS_INTERNAL;
+  double cx = buffer->w/2 + rel_x*scale, cy = buffer->h/2 + rel_y*scale;
+  double fade = 1.0 - progress;
+  double radius;
+
+  if (woke) {
+    gui_draw_volcano(buffer, rel_x, rel_y, progress);
+    radius = (1.0 + progress * 9.0) * scale;
+    gui_circle(buffer, cx, cy, radius, gui_makecol((int)(255*fade), (int)(150*fade), 0));
+    gui_circle(buffer, cx, cy, radius * 0.8, gui_makecol((int)(255*fade), (int)(220*fade), (int)(80*fade)));
+  } else {
+    gui_draw_volcano(buffer, rel_x, rel_y, fade);
+    radius = (1.5 + progress * 5.0) * scale;
+    gui_circle(buffer, cx, cy, radius, gui_makecol((int)(170*fade), (int)(170*fade), (int)(170*fade)));
+    gui_circle(buffer, cx, cy, radius * 0.7, gui_makecol((int)(120*fade), (int)(120*fade), (int)(120*fade)));
+  }
+}
+
+// A lumpy rock. Its shape and spin come from its objectID, so every client
+// draws it the same; cracks spread across it as it takes damage.
+static void gui_draw_asteroid(GuiArea *buffer, double rel_x, double rel_y, object_t objectID, int hp) {
+  double scale = P_GUI_RADIUS_FUNC(buffer) / P_GUI_SHIP_RADIUS_INTERNAL;
+  double cx = buffer->w/2 + rel_x*scale, cy = buffer->h/2 + rel_y*scale;
+  double spin = ((objectID * 37) % 11 - 5) * 0.12; // Radians per second, either way
+  double rotation = SDL_GetTicks() / 1000.0 * spin + objectID;
+  double px[10], py[10], r;
+  int rock = gui_makecol(165, 155, 140), crack = gui_makecol(95, 85, 75);
+  int k, cracks;
+
+  for (k=0; k < 10; k++) {
+    r = ASTEROID_RADIUS * (0.78 + 0.32 * ((objectID * 7919 + k * 104729) % 97) / 96.0);
+    px[k] = cx + cos(rotation + k * M_PI / 5) * r * scale;
+    py[k] = cy + sin(rotation + k * M_PI / 5) * r * scale;
+  }
+  for (k=0; k < 10; k++) gui_line(buffer, px[k], py[k], px[(k + 1) % 10], py[(k + 1) % 10], rock);
+
+  // One crack per quarter of its health lost, from near the middle to the edge
+  cracks = (ASTEROID_HP - hp) * 4 / ASTEROID_HP;
+  for (k=0; k < cracks && k < 4; k++) {
+    int v = (objectID + k * 3) % 10;
+    gui_line(buffer, cx + (px[v] - cx) * 0.15, cy + (py[v] - cy) * 0.15, px[v], py[v], crack);
+  }
 }
 
 static void gui_octagon(GuiArea *buffer, double cx, double cy, double radius, double rotation, int color) {
@@ -759,6 +831,7 @@ void gui_draw_radar(GuiArea *buffer)
   int planet_col  =   gui_makecol(128,90,0);
   int volcano_col =   gui_makecol(255,120,0);
   int orb_col     =   gui_makecol(0,255,255);
+  int asteroid_col =  gui_makecol(200,200,200);
   
   int i;
 
@@ -835,6 +908,14 @@ void gui_draw_radar(GuiArea *buffer)
 	       (xcoord-SPACE_MIN_XCOORD)/(SPACE_MAX_XCOORD-SPACE_MIN_XCOORD)*buffer->w ,
 	       (ycoord-SPACE_MIN_YCOORD)/(SPACE_MAX_YCOORD-SPACE_MIN_YCOORD)*buffer->h ,
 	       missile_col);
+  }
+
+  // Asteroids are a small square, bigger than a ship's dot
+  for (i=0; i < cdataCountAsteroids; i++) {
+    xcoord = (cdataAsteroids[i].xcoord-SPACE_MIN_XCOORD)/(SPACE_MAX_XCOORD-SPACE_MIN_XCOORD)*buffer->w;
+    ycoord = (cdataAsteroids[i].ycoord-SPACE_MIN_YCOORD)/(SPACE_MAX_YCOORD-SPACE_MIN_YCOORD)*buffer->h;
+    gui_hline(buffer, xcoord, ycoord, xcoord + 1, asteroid_col);
+    gui_hline(buffer, xcoord, ycoord + 1, xcoord + 1, asteroid_col);
   }
 
   // Recharge orbs are a small cross, so they are easy to find
@@ -1030,7 +1111,7 @@ static void gui_draw_scoreboard() {
     float rowY = y + rulesY + 26 + (i % ruleRows) * ruleH;
     color = (cdataOptions[i] != gameOptions[i].defaultValue) ? 0xffff40 : 0xc0c0c0;
     gui_text(colX, rowY, 1.0f, 0x808080, gameOptions[i].label);
-    snprintf(text, LEN, "%d", cdataOptions[i]);
+    snprintf(text, LEN, "%s", gameOptionText(i, cdataOptions[i]));
     gui_text(colX + w / 2 - 40 - gui_text_width(1.0f, text), rowY, 1.0f, color, text);
   }
 }

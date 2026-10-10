@@ -3,6 +3,7 @@
 #include "server.h"
 #include "sdata.h"
 #include "physics.h"
+#include "asteroids.h"
 
 int serverLogLevel = LOG_EVENTS;
 
@@ -46,6 +47,7 @@ void serverInitialize() {
     sdataCreatePlanet(sdataNewObjectID(), xcoord, ycoord);
   }
   volcanoInitialize();
+  asteroidsInitialize();
 }
 
 // Client Keepalive Checks
@@ -602,6 +604,23 @@ void ssend_msg_updatemissiles(int mysocket, struct sockaddr_in client_addr) {
   free(packet);
 }
 
+// Sent every tick, even when empty: clients drop asteroids missing from the list
+void ssend_msg_updateasteroids(int mysocket, struct sockaddr_in client_addr) {
+  int i, bytes;
+  int packetSize = sizeof(struct msg_updateasteroids) + sizeof(struct dataNodeAsteroids) * sdataCountAsteroids;
+  struct msg_updateasteroids *packet = (struct msg_updateasteroids *)malloc(packetSize);
+
+  packet->mtype = MSG_UPDATEASTEROIDS;
+  packet->obj_count = sdataCountAsteroids;
+  for (i=0; i < sdataCountAsteroids; i++) packet->asteroids[i] = *sdataArrayAsteroids[i];
+
+  bytes = sendto(mysocket, (const char *)packet, packetSize, 0, (struct sockaddr *)&client_addr, sizeof(client_addr));
+  if (bytes < 0) {
+    fprintf(stderr, "Error: unable to send msg_updateasteroids: %d\n", netLastError());
+  }
+  free(packet);
+}
+
 // Sent every tick, even when empty: clients drop orbs missing from the list
 void ssend_msg_updateorbs(int mysocket, struct sockaddr_in client_addr) {
   int i, bytes;
@@ -815,6 +834,29 @@ void broadcastUpdateMissiles() {
   // Send updates to all players
   for (i=0; i < sdataCountClients; i++) {
     ssend_msg_updatemissiles(serverSocket, *(sdataArrayClients[i]->client_addr));
+  }
+}
+
+// The planet list, to everyone now (a volcano changed)...
+void broadcastStaticObjs() {
+  int i;
+  for (i=0; i < sdataCountClients; i++) {
+    ssend_msg_staticobjs(serverSocket, *(sdataArrayClients[i]->client_addr));
+  }
+}
+
+// ...and every STATICOBJS_TICKS, called each tick, in case that was lost
+void broadcastStaticObjsRepeat() {
+  static int ticks = 0;
+  if (++ticks < STATICOBJS_TICKS) return;
+  ticks = 0;
+  broadcastStaticObjs();
+}
+
+void broadcastUpdateAsteroids() {
+  int i;
+  for (i=0; i < sdataCountClients; i++) {
+    ssend_msg_updateasteroids(serverSocket, *(sdataArrayClients[i]->client_addr));
   }
 }
 

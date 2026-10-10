@@ -17,6 +17,7 @@ void chandle_msg_explosion(int mysocket, void *packet, struct sockaddr_in server
 void chandle_msg_clientlist(int mysocket, void *packet, struct sockaddr_in server_addr);
 void chandle_msg_scoreboard(int mysocket, void *packet, struct sockaddr_in server_addr);
 void chandle_msg_deleteobj(int mysocket, void *packet, struct sockaddr_in server_addr);
+void chandle_msg_updateasteroids(int mysocket, void *packet, struct sockaddr_in server_addr);
 void chandle_msg_updateorbs(int mysocket, void *packet, struct sockaddr_in server_addr);
 void chandle_msg_gameoptions(int mysocket, void *packet, struct sockaddr_in server_addr);
 

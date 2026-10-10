@@ -148,7 +148,7 @@ int main(int argc, char **argv) {
   if (VERBOSE) printf("Ready for Connections\n");
   serverLog("NetSpaceWar %s listening on %s port %d", NSW_VERSION, inet_ntoa(listen_addr), server_port);
   for (i=0; i < OPTION_COUNT; i++) {
-    if (serverOptions[i] != gameOptions[i].defaultValue) serverLog("Rule: %s %d", gameOptions[i].label, serverOptions[i]);
+    if (serverOptions[i] != gameOptions[i].defaultValue) serverLog("Rule: %s %s", gameOptions[i].label, gameOptionText(i, serverOptions[i]));
   }
 
   while(1) {
@@ -187,6 +187,8 @@ int main(int argc, char **argv) {
       broadcastUpdatePlayers();
       broadcastUpdateMissiles();
       broadcastUpdateOrbs();
+      broadcastUpdateAsteroids();
+      broadcastStaticObjsRepeat();
       broadcastScoreboard();
     }
 

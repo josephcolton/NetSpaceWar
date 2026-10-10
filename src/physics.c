@@ -2,18 +2,16 @@
 #include "sdata.h"
 #include "server.h"
 #include "physics.h"
+#include "asteroids.h"
 
 /* Global variable definitions (declared extern in physics.h) */
 int restoreCount;
 
 /* What last hit each ship this tick, so a death can say what caused it */
-#define HIT_PLANET  1
-#define HIT_SHIP    2
-#define HIT_MISSILE 3
 static struct { object_t ship; int cause; object_t by; } lastHits[MAX_COUNT_SHIPS];
 static int lastHitCount;
 
-static void noteHit(object_t ship, int cause, object_t by) {
+void noteHit(object_t ship, int cause, object_t by) {
   int i;
   for (i=0; i < lastHitCount && lastHits[i].ship != ship; i++);
   if (i == MAX_COUNT_SHIPS) return;
@@ -29,6 +27,7 @@ static void reportDeath(object_t ship) {
   for (i=0; i < lastHitCount && lastHits[i].ship != ship; i++);
   if (i == lastHitCount) serverLog("%s was destroyed", name);
   else if (lastHits[i].cause == HIT_PLANET) serverLog("%s crashed into a planet", name);
+  else if (lastHits[i].cause == HIT_ASTEROID) serverLog("%s crashed into an asteroid", name);
   else if (lastHits[i].cause == HIT_SHIP) serverLog("%s was destroyed colliding with %s", name, serverClientName(lastHits[i].by));
   else if (lastHits[i].by == ship) serverLog("%s was destroyed by their own missile", name);
   else serverLog("%s was destroyed by %s", name, serverClientName(lastHits[i].by));
@@ -418,6 +417,25 @@ void physicsUpdateGravity() {
     }
   }
 
+  // Asteroids pull on all of them too, more weakly
+  for (i=0; i < sdataCountShips; i++) {
+    if (sdataArrayShips[i] == NULL || sdataArrayShips[i]->status == 0) continue;
+    asteroidGravity(sdataArrayShips[i]->xcoord, sdataArrayShips[i]->ycoord, &x2, &y2);
+    sdataArrayShips[i]->xVelocity += x2;
+    sdataArrayShips[i]->yVelocity += y2;
+  }
+  for (i=0; i < sdataCountMissiles; i++) {
+    if (sdataArrayMissiles[i] == NULL) continue;
+    asteroidGravity(sdataArrayMissiles[i]->xcoord, sdataArrayMissiles[i]->ycoord, &x2, &y2);
+    sdataArrayMissiles[i]->xVelocity += x2;
+    sdataArrayMissiles[i]->yVelocity += y2;
+  }
+  for (i=0; i < sdataCountOrbs; i++) {
+    asteroidGravity(sdataArrayOrbs[i]->xcoord, sdataArrayOrbs[i]->ycoord, &x2, &y2);
+    sdataArrayOrbs[i]->xVelocity += x2;
+    sdataArrayOrbs[i]->yVelocity += y2;
+  }
+
 }
 
 /* Volcanoes and recharge orbs */
@@ -427,7 +445,7 @@ void physicsUpdateGravity() {
 // while the planet has no orb out.
 static int volcanoWait[MAX_COUNT_PLANETS];
 
-static double randUnit() {
+double randUnit() {
   return rand() / (RAND_MAX + 1.0);
 }
 
@@ -461,10 +479,20 @@ void volcanoInitialize() {
 }
 
 // Remove the orb at index i; its volcano starts waiting for the next one
-static void orbRemove(int i) {
+void orbRemove(int i) {
   int planet = planetIndex(sdataArrayOrbs[i]->source);
   if (planet >= 0) volcanoWait[planet] = ORB_TICKS(SERVER_OPTION(ORB_WAIT));
   sdataDeleteOrb(sdataArrayOrbs[i]->objectID);
+}
+
+// An asteroid hit planet p: give it a volcano or put its volcano out. A new
+// volcano erupts soon; an orb already out stays out.
+void volcanoToggle(int p) {
+  struct dataNodePlanets *planet = sdataArrayPlanets[p];
+  planet->volcano = !planet->volcano;
+  if (planet->volcano) volcanoWait[p] = ORB_TICKS(VOLCANO_WAKE);
+  serverLog(planet->volcano ? "The impact woke a volcano" : "The impact put out a volcano");
+  broadcastStaticObjs();
 }
 
 // Shoot an orb out of planet p in a random direction. Gravity weakens with
@@ -539,6 +567,7 @@ void physicsUpdate() {
   physicsUpdatePositions();
   physicsUpdateCollisions();
   volcanoUpdate();
+  asteroidsUpdate();
   // Must run after collisions: if a ship were left with negative shields
   // until the next tick, a power transfer or shield restore in between
   // would clamp them back to 0 and the ship would survive.

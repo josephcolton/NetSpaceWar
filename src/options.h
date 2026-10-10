@@ -17,6 +17,7 @@ enum {
   OPTION_JUMP_COST,
   OPTION_VOLCANOES,
   OPTION_ORB_WAIT,
+  OPTION_ASTEROIDS,
   OPTION_COUNT
 };
 
@@ -26,6 +27,7 @@ struct gameOption {
   const char *help;   // One line for the menu
   int defaultValue;
   int minValue, maxValue, step;
+  const char *const *names; // Shown instead of the number (value - minValue), or NULL
 };
 
 extern const struct gameOption gameOptions[OPTION_COUNT];
@@ -35,6 +37,8 @@ void gameOptionsReset(int *values);
 // planets). Returns 1 if it had to change anything.
 int gameOptionsFix(int *values);
 int gameOptionClamp(int option, int value);
+// The value as players see it: its name if the option has names, else the number
+const char *gameOptionText(int option, int value);
 int gameOptionFind(const char *name);  // -1 if there is no such option
 // Read "--name value" pairs from argv[first..]. Returns 0 (after printing
 // why) on an unknown option or a value out of range.
