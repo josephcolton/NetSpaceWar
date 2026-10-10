@@ -10,6 +10,8 @@
 #define LAUNCHER_HOST_MAX     64
 #define LAUNCHER_PORT_MAX     6
 #define LAUNCHER_MAX_ITEMS    (OPTION_COUNT + 4)
+#define LAUNCHER_LIST_TOP     70  // Where a scrolling screen's rows show...
+#define LAUNCHER_LIST_BOTTOM  340 // ...and end
 #define LAUNCHER_MAX_ARGS     (5 + 2 * OPTION_COUNT) // Server: address, port, --silent, --host-player name, --option value...
 
 #ifdef _WIN32
@@ -55,6 +57,7 @@ typedef struct {
   int minValue, maxValue, step;
   int wrap;               // Past one end goes around to the other
   const char *help;       // Game options: shown under the menu while focused
+  int hidden;             // Scrolled out of view
   SDL_FRect box;          // Where it is on screen, for the mouse
 } LauncherItem;
 
@@ -67,6 +70,8 @@ typedef struct {
   char status[LEN];       // Error or result message shown under the menu
   char localAddress[64];  // Where other players can find a hosted game
   int running;
+  float scroll, scrollMax; // How far a long screen's rows are scrolled
+  int followFocus;         // Scroll to the focused row (it moved by keyboard)
 } Launcher;
 
 /* Settings file */
@@ -299,9 +304,41 @@ static void launcherAddOption(Launcher *l, int option) {
   item->help = o->help;
 }
 
+// Slide a scrolling screen's rows by l->scroll, keeping a row chosen with
+// the keyboard in view, and hide the rows outside the list area
+static void launcherScroll(Launcher *l) {
+  LauncherItem *focus = &l->items[l->focus];
+  float bottom = LAUNCHER_LIST_TOP;
+  int i;
+
+  for (i=0; i < l->itemCount; i++) {
+    if (l->items[i].kind != ITEM_BUTTON && l->items[i].box.y + l->items[i].box.h > bottom) {
+      bottom = l->items[i].box.y + l->items[i].box.h;
+    }
+  }
+  if (l->followFocus && focus->kind != ITEM_BUTTON) {
+    if (focus->box.y - l->scroll < LAUNCHER_LIST_TOP) l->scroll = focus->box.y - LAUNCHER_LIST_TOP;
+    if (focus->box.y + focus->box.h - l->scroll > LAUNCHER_LIST_BOTTOM) {
+      l->scroll = focus->box.y + focus->box.h - LAUNCHER_LIST_BOTTOM;
+    }
+  }
+  l->followFocus = 0;
+  l->scrollMax = bottom - LAUNCHER_LIST_BOTTOM;
+  if (l->scrollMax < 0) l->scrollMax = 0;
+  if (l->scroll > l->scrollMax) l->scroll = l->scrollMax;
+  if (l->scroll < 0) l->scroll = 0;
+
+  for (i=0; i < l->itemCount; i++) {
+    LauncherItem *item = &l->items[i];
+    if (item->kind == ITEM_BUTTON) continue;
+    item->box.y -= l->scroll;
+    item->hidden = (item->box.y < LAUNCHER_LIST_TOP - 1 || item->box.y + item->box.h > LAUNCHER_LIST_BOTTOM + 1);
+  }
+}
+
 // Decide what is on the current screen and where each item goes
 static void launcherBuildScreen(Launcher *l) {
-  int i, dense;
+  int i, scrolling;
   float y;
 
   l->itemCount = 0;
@@ -331,14 +368,16 @@ static void launcherBuildScreen(Launcher *l) {
     launcherAddButton(l, "Back", ACTION_BACK);
   }
 
-  // Fields are rows of label + box; buttons are centered below them.
-  // The settings screen has many rows, so they are packed closer.
-  dense = (l->screen == SCREEN_SETTINGS);
-  y = (l->screen == SCREEN_MAIN) ? 220 : (l->screen == SCREEN_ABOUT) ? 392 : dense ? 72 : 124;
+  // Fields are rows of label + box; buttons are centered below them. The
+  // settings screen has more rows than fit, so they scroll between
+  // LAUNCHER_LIST_TOP and LAUNCHER_LIST_BOTTOM and its buttons stay below.
+  scrolling = (l->screen == SCREEN_SETTINGS);
+  y = (l->screen == SCREEN_MAIN) ? 220 : (l->screen == SCREEN_ABOUT) ? 392 : scrolling ? LAUNCHER_LIST_TOP : 124;
   for (i=0; i < l->itemCount; i++) {
     LauncherItem *item = &l->items[i];
+    item->hidden = 0;
     if (item->kind == ITEM_BUTTON) {
-      if (i > 0 && l->items[i-1].kind != ITEM_BUTTON) y += dense ? 8 : 16;
+      if (i > 0 && l->items[i-1].kind != ITEM_BUTTON) y = scrolling ? LAUNCHER_LIST_BOTTOM + 10 : y + 16;
       item->box.w = 300;
       item->box.x = (GUI_SCREEN_W - item->box.w) / 2;
     } else {
@@ -346,15 +385,17 @@ static void launcherBuildScreen(Launcher *l) {
       item->box.w = 240;
     }
     item->box.y = y;
-    item->box.h = dense ? 22 : 28;
-    y += dense ? 25 : 40;
+    item->box.h = scrolling ? 24 : 28;
+    y += scrolling ? 30 : 40;
   }
   if (l->focus >= l->itemCount) l->focus = 0;
+  if (scrolling) launcherScroll(l);
 }
 
 static void launcherShowScreen(Launcher *l, LauncherScreen screen) {
   l->screen = screen;
   l->focus = 0;
+  l->scroll = 0;
   l->status[0] = 0;
   launcherBuildScreen(l);
 }
@@ -406,13 +447,15 @@ static int launcherItemAt(Launcher *l, float x, float y) {
   int i;
   SDL_FPoint point = {x, y};
   for (i=0; i < l->itemCount; i++) {
-    if (SDL_PointInRectFloat(&point, &l->items[i].box)) return i;
+    if (!l->items[i].hidden && SDL_PointInRectFloat(&point, &l->items[i].box)) return i;
   }
   return -1;
 }
 
 static void launcherHandleKey(Launcher *l, SDL_Keycode key, SDL_Keymod mod) {
   LauncherItem *item = &l->items[l->focus];
+
+  l->followFocus = 1; // If this moves the focus, scroll to it
 
   switch (key) {
   case SDLK_UP:
@@ -463,6 +506,9 @@ static void launcherHandleEvent(Launcher *l, SDL_Event *event) {
     item = &l->items[l->focus];
     if (item->kind == ITEM_TEXT) launcherTypeText(item, event->text.text);
     break;
+  case SDL_EVENT_MOUSE_WHEEL:
+    l->scroll -= event->wheel.y * 30;
+    break;
   case SDL_EVENT_MOUSE_MOTION:
     SDL_ConvertEventToRenderCoordinates(gui_get_renderer(), event);
     i = launcherItemAt(l, event->motion.x, event->motion.y);
@@ -496,6 +542,7 @@ static void launcherDrawItem(Launcher *l, int index) {
   int focused = (index == l->focus);
   int color = focused ? COLOR_FOCUS : COLOR_TEXT;
   float textY = item->box.y + (item->box.h - 16) / 2;
+  float scale;
   char text[LEN];
 
   if (item->kind == ITEM_BUTTON) {
@@ -519,8 +566,12 @@ static void launcherDrawItem(Launcher *l, int index) {
     // Game options may show a name (None, Light...) instead of the number
     if (item->help) snprintf(text, LEN, "<  %s  >", gameOptionText(item->value - l->settings.options, *item->value));
     else snprintf(text, LEN, "<  %d  >", *item->value);
+    // Long names ("Medium (1000)") get smaller text to fit the box
+    scale = 2.0f;
+    while (scale > 1.0f && gui_text_width(scale, text) > item->box.w - 12) scale -= 0.5f;
     // Rules changed from the default stand out
-    gui_text(item->box.x + (item->box.w - gui_text_width(2.0f, text)) / 2, textY, 2.0f,
+    gui_text(item->box.x + (item->box.w - gui_text_width(scale, text)) / 2,
+             item->box.y + (item->box.h - 8 * scale) / 2, scale,
              (item->help && *item->value != launcherOptionDefault(l, item)) ? COLOR_FOCUS : 0xffffff, text);
   }
 }
@@ -572,7 +623,12 @@ static void launcherDraw(Launcher *l) {
     gui_text_centered(70, 3.0f, COLOR_TITLE, l->screen == SCREEN_HOST ? "HOST A GAME" : "JOIN A GAME");
   }
 
-  for (i=0; i < l->itemCount; i++) launcherDrawItem(l, i);
+  for (i=0; i < l->itemCount; i++) {
+    if (!l->items[i].hidden) launcherDrawItem(l, i);
+  }
+  // Arrows when there are more rows above or below
+  if (l->scroll > 0) gui_text(548, LAUNCHER_LIST_TOP + 4, 2.0f, COLOR_DIM, "^");
+  if (l->scroll < l->scrollMax) gui_text(548, LAUNCHER_LIST_BOTTOM - 20, 2.0f, COLOR_DIM, "v");
 
   if (l->screen == SCREEN_HOST) {
     port = atoi(l->settings.port);
@@ -588,7 +644,7 @@ static void launcherDraw(Launcher *l) {
   if (l->screen == SCREEN_SETTINGS && item->help) {
     snprintf(info, LEN, "%s (default %s)", item->help,
              gameOptionText(item->value - l->settings.options, launcherOptionDefault(l, item)));
-    gui_text_centered(414, 1.0f, COLOR_TEXT, info);
+    gui_text_centered(418, 1.0f, COLOR_TEXT, info);
   }
 
   if (l->status[0]) gui_text_centered(430, 1.0f, COLOR_ERROR, l->status);

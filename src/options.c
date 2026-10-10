@@ -5,6 +5,11 @@ static const char *const asteroidLevels[ASTEROID_LEVELS] = {
   "None", "Rare", "Light", "Moderate", "Heavy", "Frequent"
 };
 
+// Match length, shown with the score that wins (MATCH_SCORES)
+static const char *const matchLengths[MATCH_LENGTHS] = {
+  "Endless", "Short (500)", "Medium (1000)", "Long (5000)"
+};
+
 // Case-insensitive compare, so --asteroids light works
 static int nameCompare(const char *a, const char *b) {
   while (*a && tolower((unsigned char)*a) == tolower((unsigned char)*b)) a++, b++;
@@ -24,6 +29,7 @@ const struct gameOption gameOptions[OPTION_COUNT] = {
   {"volcanoes",     "Volcanoes",      "Planets that start with a volcano (up to Planets)",       VOLCANOES,         0, MAX_COUNT_PLANETS, 1},
   {"orb-wait",      "Orb wait",       "Seconds a volcano waits after its recharge orb is gone",  ORB_WAIT,          5, 120, 5},
   {"asteroids",     "Asteroids",      "How often asteroids drift in",                            ASTEROIDS,         0, ASTEROID_LEVELS - 1, 1, asteroidLevels},
+  {"match",         "Match length",   "The score that wins the match",                           MATCH,             0, MATCH_LENGTHS - 1, 1, matchLengths},
 };
 
 const char *gameOptionText(int option, int value) {
@@ -32,6 +38,17 @@ const char *gameOptionText(int option, int value) {
   if (o->names != NULL && value >= o->minValue && value <= o->maxValue) return o->names[value - o->minValue];
   snprintf(number, sizeof(number), "%d", value);
   return number;
+}
+
+// Also accept just the name's first word, so --match short means "Short (500)"
+static int nameMatchesWord(const char *text, const char *name) {
+  size_t len = strcspn(name, " ");
+  size_t i;
+  if (strlen(text) != len) return 0;
+  for (i=0; i < len; i++) {
+    if (tolower((unsigned char)text[i]) != tolower((unsigned char)name[i])) return 0;
+  }
+  return 1;
 }
 
 // "None, Rare, ..." for an option with names
@@ -53,7 +70,7 @@ static int gameOptionValue(int option, const char *text, long *value) {
   int i;
   if (o->names != NULL) {
     for (i=0; i <= o->maxValue - o->minValue; i++) {
-      if (nameCompare(text, o->names[i]) == 0) {
+      if (nameCompare(text, o->names[i]) == 0 || nameMatchesWord(text, o->names[i])) {
         *value = o->minValue + i;
         return 1;
       }

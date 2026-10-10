@@ -43,6 +43,10 @@ void cdataAddEvent(const char *text); // Drops the oldest when full
 // The latest scoreboard from the server, in the server's order
 extern struct wireScore cdataScores[MAX_COUNT_CLIENTS];
 extern int cdataCountScores;
+// The match, from the scoreboard: over (rankings up), who won, seconds to the next
+extern int cdataMatchOver;
+extern object_t cdataMatchWinner;
+extern int cdataNextMatch;
 
 // The server's game rules: defaults until its msg_gameoptions arrives
 extern int cdataOptions[OPTION_COUNT];

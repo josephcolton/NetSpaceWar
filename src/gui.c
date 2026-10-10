@@ -30,6 +30,10 @@ static void gui_draw_asteroid(GuiArea *buffer, double rel_x, double rel_y, objec
 static void gui_draw_score();
 static void gui_draw_events();
 static void gui_draw_scoreboard();
+static void gui_draw_rankings();
+
+// The score that wins at each Match length (0 = Endless)
+static const int gui_match_scores[MATCH_LENGTHS] = MATCH_SCORES;
 
 SDL_Window *gui_window = NULL;
 SDL_Renderer *gui_renderer = NULL;
@@ -310,6 +314,14 @@ void gui_update_display() {
   }
   gui_draw_hud(scr_buff,clientShip->shields,clientShip->energy);
   gui_draw_score();
+
+  // At the end of a match, the final rankings take over the screen
+  if (cdataMatchOver) {
+    gui_draw_rankings();
+    SDL_RenderPresent(gui_renderer);
+    return;
+  }
+
   gui_draw_events();
 
   // Show everyone's scores while S is held, and while waiting to respawn
@@ -1064,7 +1076,10 @@ static struct wireScore *gui_own_score() {
 static void gui_draw_score() {
   char text[LEN];
   struct wireScore *own = gui_own_score();
-  snprintf(text, LEN, "Score %d", own ? own->score : 0);
+  int target = gui_match_scores[CLIENT_OPTION(MATCH)];
+  // In a match, show the score that wins too
+  if (target > 0) snprintf(text, LEN, "Score %d / %d", own ? own->score : 0, target);
+  else snprintf(text, LEN, "Score %d", own ? own->score : 0);
   gui_text(8, 8, 2.0f, 0xffffff, text);
   gui_text(8, 30, 1.0f, 0x808080, "Hold S for scores and rules");
 }
@@ -1156,4 +1171,65 @@ static void gui_draw_scoreboard() {
     snprintf(text, LEN, "%s", gameOptionText(i, cdataOptions[i]));
     gui_text(colX + w / 2 - 40 - gui_text_width(1.0f, text), rowY, 1.0f, color, text);
   }
+}
+
+// End of a match: everyone ranked by score, the winner highlighted in
+// gold, and a countdown to the next match
+static void gui_draw_rankings() {
+  struct wireScore sorted[MAX_COUNT_CLIENTS];
+  char text[LEN];
+  int i, color, count = cdataCountScores;
+  float x = 90, w = GUI_SCREEN_W - 180, rowH = 30, top = 190;
+  float colRank = x + 16, colName = x + 60, colScore = x + 290, colKills = x + 370, colDeaths = x + 420;
+  const char *winner = NULL;
+
+  memcpy(sorted, cdataScores, sizeof(struct wireScore) * count);
+  qsort(sorted, count, sizeof(struct wireScore), gui_compare_scores);
+  for (i=0; i < count; i++) {
+    if (sorted[i].objectID == cdataMatchWinner) winner = sorted[i].username;
+  }
+
+  // Dark panel over the frozen game
+  SDL_SetRenderDrawBlendMode(gui_renderer, SDL_BLENDMODE_BLEND);
+  SDL_SetRenderDrawColor(gui_renderer, 0, 0, 20, 220);
+  {
+    SDL_FRect panel = {x - 20, 50, w + 40, 380};
+    SDL_RenderFillRect(gui_renderer, &panel);
+  }
+  SDL_SetRenderDrawBlendMode(gui_renderer, SDL_BLENDMODE_NONE);
+  gui_outline_rect(x - 20, 50, w + 40, 380, 0xffd700);
+
+  gui_text_centered(72, 3.0f, 0x60c0ff, "MATCH OVER");
+  if (winner != NULL) {
+    snprintf(text, LEN, "%.19s wins!", winner);
+    gui_text_centered(118, 2.0f, 0xffd700, text);
+  }
+
+  gui_text(colRank, top - 22, 1.0f, 0x808080, "Rank");
+  gui_text(colName, top - 22, 1.0f, 0x808080, "Player");
+  gui_text(colScore, top - 22, 1.0f, 0x808080, "Score");
+  gui_text(colKills, top - 22, 1.0f, 0x808080, "Kills");
+  gui_text(colDeaths, top - 22, 1.0f, 0x808080, "Deaths");
+  for (i=0; i < count; i++) {
+    float rowY = top + i * rowH;
+    if (sorted[i].objectID == cdataMatchWinner) {
+      color = 0xffd700;
+      gui_outline_rect(x, rowY - 6, w, rowH - 2, 0xffd700);
+    } else {
+      color = (sorted[i].objectID == clientObjectID) ? 0xffff40 : 0xffffff;
+    }
+    snprintf(text, LEN, "%d", i + 1);
+    gui_text(colRank, rowY, 2.0f, color, text);
+    snprintf(text, LEN, "%.12s", sorted[i].username);
+    gui_text(colName, rowY, 2.0f, color, text);
+    snprintf(text, LEN, "%d", sorted[i].score);
+    gui_text(colScore, rowY, 2.0f, color, text);
+    snprintf(text, LEN, "%d", sorted[i].kills);
+    gui_text(colKills, rowY, 1.0f, color, text);
+    snprintf(text, LEN, "%d", sorted[i].deaths);
+    gui_text(colDeaths, rowY, 1.0f, color, text);
+  }
+
+  snprintf(text, LEN, "Next match in %d", cdataNextMatch);
+  gui_text_centered(400, 1.0f, 0xc0c0c0, text);
 }

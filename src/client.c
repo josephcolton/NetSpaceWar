@@ -420,6 +420,9 @@ void chandle_msg_scoreboard(int mysocket, void *packet, struct sockaddr_in serve
                       cdataScores[i].username, cdataScores[i].score, cdataScores[i].kills, cdataScores[i].deaths);
   }
   cdataCountScores = count;
+  cdataMatchOver = ((struct msg_scoreboard *)packet)->matchOver;
+  cdataMatchWinner = ((struct msg_scoreboard *)packet)->winner;
+  cdataNextMatch = ((struct msg_scoreboard *)packet)->nextMatch;
 }
 
 void chandle_msg_gameoptions(int mysocket, void *packet, struct sockaddr_in server_addr) {

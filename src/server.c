@@ -4,6 +4,7 @@
 #include "sdata.h"
 #include "physics.h"
 #include "asteroids.h"
+#include "match.h"
 
 int serverLogLevel = LOG_EVENTS;
 char serverHostName[USERNAME_MAX];
@@ -318,6 +319,9 @@ void shandle_msg_clientupdate(int mysocket, void *packet, struct sockaddr_in cli
   if (VERBOSE) printf("  packet->var1 = %.2f\n", var1);
   if (VERBOSE) printf("  packet->var2 = %.2f\n", var2);
   if (VERBOSE) printf("  packet->var3 = %d\n", var3);
+
+  // Nobody moves while the match rankings are up
+  if (matchOver) return;
 
   // Update ship status
   if (action == ACTION_THRUST) {
@@ -797,6 +801,9 @@ void ssend_msg_scoreboard(int mysocket, struct sockaddr_in client_addr) {
   // Populate the packet
   packet->mtype = MSG_SCOREBOARD;
   packet->obj_count = sdataCountClients;
+  packet->matchOver = matchOver;
+  packet->winner = matchWinner;
+  packet->nextMatch = matchOver ? matchSecondsLeft() : 0;
   for(i=0; i < sdataCountClients; i++) {
     (packet->scores[i]).objectID = sdataArrayClients[i]->objectID;
     strncpy((packet->scores[i]).username, sdataArrayClients[i]->username, USERNAME_MAX);

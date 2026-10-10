@@ -72,7 +72,7 @@ Run `NetSpaceWar` (on Windows, double-click `NetSpaceWar.exe`).
 </p>
 
 - **Host Game** starts a game on your computer. Choose your name, a port, and how many AI bots to add (up to 4; a game holds 5 ships). The screen shows the address other players can use to join. On Windows, allow the firewall prompt so they can reach you.
-  - **Game Settings** changes the rules for games you host: number of planets, gravity, missile life, top speed, crash and missile damage, the energy cost of shots and hyperjumps, how many planets start with volcanoes, how long a volcano waits between recharge orbs, and how often asteroids drift in (None to Frequent; None by default). Changed values are highlighted, and **Reset to Defaults** puts them all back. Everyone who joins, bots included, gets the host's rules: players see them by holding S.
+  - **Game Settings** changes the rules for games you host: number of planets, gravity, missile life, top speed, crash and missile damage, the energy cost of shots and hyperjumps, how many planets start with volcanoes, how long a volcano waits between recharge orbs, how often asteroids drift in (None to Frequent; None by default), and the match length (Endless by default, or first to 500, 1000 or 5000 points). The list scrolls. Changed values are highlighted, and **Reset to Defaults** puts them all back. Everyone who joins, bots included, gets the host's rules: players see them by holding S.
 - **Join Game** connects to someone else's game by address and port.
 
 <p align="center">
@@ -120,4 +120,7 @@ The window can be resized; the game scales to fit.
 - Some planets have volcanoes that shoot out recharge orbs. Fly into one to refill your energy and shields completely. An orb is pulled by gravity like everything else: some escape their planet and drift away, others fall back. A planet destroys any orb that hits it, and an uncollected orb blinks and fades after a minute. Each volcano has one orb out at a time and waits 30 seconds (by default) after it is gone before erupting again.
 - If the host turns them on, asteroids drift in from off screen. They pull lightly with their own gravity and take 4 missile hits (at the default damage) to destroy: 10 points per hit and 100 for destroying one. Ramming one does heavy damage to both you and the asteroid, and finishing one off by ramming also scores 100, though it may destroy you too. An asteroid that hits a planet explodes, and may wake up a volcano there or put one out.
 - The universe wraps around at the edges.
+- Ships appear well clear of planets, asteroids and other ships when they join, respawn or hyperjump.
+- With a match length set, the first player to reach the target score wins. Everyone sees the final rankings, and a new match starts 10 seconds later.
+- Who destroyed whom, and who joined or left, appears at the bottom of the screen.
 - Scoring: 10 points for a hit, 100 for a kill, and -100 for dying (scores never go below 0). Hitting yourself scores nothing. Hold S to see everyone's score, kills and deaths; the scoreboard also appears while you wait to respawn.

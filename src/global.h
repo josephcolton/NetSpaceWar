@@ -122,6 +122,12 @@ static inline int versionCompatible(const char *version) {
 #define POINTS_DIE       -100
 #define SCOREBOARD_TICKS 20 // Resend the scoreboard at least this often (in physics ticks)
 
+/* Match length: the score that wins, by setting (0 = Endless) */
+#define MATCH            0
+#define MATCH_LENGTHS    4
+#define MATCH_SCORES     {0, 500, 1000, 5000}
+#define MATCH_RESULTS_TIME 10 // Seconds the rankings show before the next match
+
 /* Maximum Counts on data types */
 #define MAX_COUNT_CLIENTS    5
 #define MAX_COUNT_EXPLOSIONS 200
@@ -410,10 +416,13 @@ struct msg_clientlist {
   struct wireClient clients[]; // obj_count entries
 } packed;
 
-// Report every player's score
+// Report every player's score, and whether the match is over
 struct msg_scoreboard {
   message_t mtype; /* = MSG_SCOREBOARD */
   int32_t obj_count;
+  uint8_t matchOver;   // 1 while the final rankings are up
+  object_t winner;     // While matchOver
+  uint8_t nextMatch;   // Seconds until the next match, while matchOver
   struct wireScore scores[]; // obj_count entries
 } packed;
 
@@ -482,7 +491,7 @@ _Static_assert(sizeof(struct msg_clientupdate) == 24, "msg_clientupdate wire siz
 _Static_assert(sizeof(struct msg_login) == 38, "msg_login wire size");
 _Static_assert(sizeof(struct msg_loginack) == 22, "msg_loginack wire size");
 _Static_assert(sizeof(struct wireScore) == 34, "wireScore wire size");
-_Static_assert(sizeof(struct msg_scoreboard) == 6, "msg_scoreboard wire size");
+_Static_assert(sizeof(struct msg_scoreboard) == 10, "msg_scoreboard wire size");
 _Static_assert(sizeof(struct msg_gameoptions) == 6, "msg_gameoptions wire size");
 
 #endif

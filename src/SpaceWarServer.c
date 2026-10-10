@@ -3,6 +3,7 @@
 #include "server.h"
 #include "sdata.h"
 #include "physics.h"
+#include "match.h"
 
 void handle_socket(int mysocket) {
   int status;
@@ -194,7 +195,9 @@ int main(int argc, char **argv) {
       // sdata update
       sdataUpdateAll();
       // Update physics
-      physicsUpdate();
+      // The game stands still while the match rankings are up
+      if (!matchOver) physicsUpdate();
+      matchUpdate();
       // Broadcast updates
       broadcastUpdatePlayers();
       broadcastUpdateMissiles();

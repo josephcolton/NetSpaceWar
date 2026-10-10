@@ -34,6 +34,9 @@ void cdataAddEvent(const char *text) {
 }
 struct wireScore cdataScores[MAX_COUNT_CLIENTS];
 int cdataCountScores;
+int cdataMatchOver;
+object_t cdataMatchWinner;
+int cdataNextMatch;
 int cdataOptions[OPTION_COUNT];
 int cdataOptionsReceived;
 struct dataNodeClients *cdataArrayClients[MAX_COUNT_CLIENTS];
@@ -78,6 +81,9 @@ void cdataInitialize() {
   cdataCountEvents = 0;
   for (i=0; i < MAX_COUNT_PLANETS; i++) cdataPlanetChanged[i] = 0.0;
   cdataCountScores = 0;
+  cdataMatchOver = 0;
+  cdataMatchWinner = 0;
+  cdataNextMatch = 0;
 
   // Rules are the defaults until the server says otherwise
   gameOptionsReset(cdataOptions);
