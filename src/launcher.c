@@ -35,12 +35,12 @@ typedef struct {
   int options[OPTION_COUNT];  // Game rules passed to the server
 } LauncherSettings;
 
-typedef enum { SCREEN_MAIN, SCREEN_HOST, SCREEN_JOIN, SCREEN_SETTINGS } LauncherScreen;
+typedef enum { SCREEN_MAIN, SCREEN_HOST, SCREEN_JOIN, SCREEN_SETTINGS, SCREEN_ABOUT } LauncherScreen;
 typedef enum { ITEM_BUTTON, ITEM_TEXT, ITEM_CHOICE } LauncherItemKind;
 typedef enum {
   ACTION_NONE, ACTION_SHOW_HOST, ACTION_SHOW_JOIN, ACTION_QUIT,
   ACTION_START_HOST, ACTION_START_JOIN, ACTION_BACK,
-  ACTION_SHOW_SETTINGS, ACTION_RESET_SETTINGS
+  ACTION_SHOW_SETTINGS, ACTION_RESET_SETTINGS, ACTION_SHOW_ABOUT
 } LauncherAction;
 
 /* One line of a menu: a button, a text field, or a number to pick */
@@ -304,6 +304,7 @@ static void launcherBuildScreen(Launcher *l) {
   if (l->screen == SCREEN_MAIN) {
     launcherAddButton(l, "Host Game", ACTION_SHOW_HOST);
     launcherAddButton(l, "Join Game", ACTION_SHOW_JOIN);
+    launcherAddButton(l, "About", ACTION_SHOW_ABOUT);
     launcherAddButton(l, "Quit", ACTION_QUIT);
   } else if (l->screen == SCREEN_HOST) {
     launcherAddText(l, "Your name", l->settings.name, USERNAME_MAX, 0);
@@ -316,6 +317,8 @@ static void launcherBuildScreen(Launcher *l) {
     for (i=0; i < OPTION_COUNT; i++) launcherAddOption(l, i);
     launcherAddButton(l, "Reset to Defaults", ACTION_RESET_SETTINGS);
     launcherAddButton(l, "Back", ACTION_BACK);
+  } else if (l->screen == SCREEN_ABOUT) {
+    launcherAddButton(l, "Back", ACTION_BACK);
   } else {
     launcherAddText(l, "Your name", l->settings.name, USERNAME_MAX, 0);
     launcherAddText(l, "Server", l->settings.host, LAUNCHER_HOST_MAX, 0);
@@ -327,7 +330,7 @@ static void launcherBuildScreen(Launcher *l) {
   // Fields are rows of label + box; buttons are centered below them.
   // The settings screen has many rows, so they are packed closer.
   dense = (l->screen == SCREEN_SETTINGS);
-  y = (l->screen == SCREEN_MAIN) ? 220 : dense ? 84 : 124;
+  y = (l->screen == SCREEN_MAIN) ? 220 : (l->screen == SCREEN_ABOUT) ? 392 : dense ? 84 : 124;
   for (i=0; i < l->itemCount; i++) {
     LauncherItem *item = &l->items[i];
     if (item->kind == ITEM_BUTTON) {
@@ -363,6 +366,7 @@ static void launcherActivate(Launcher *l, LauncherAction action) {
   case ACTION_SHOW_JOIN:  launcherShowScreen(l, SCREEN_JOIN); break;
   case ACTION_BACK:       launcherShowScreen(l, launcherParent(l)); break;
   case ACTION_SHOW_SETTINGS: launcherShowScreen(l, SCREEN_SETTINGS); break;
+  case ACTION_SHOW_ABOUT: launcherShowScreen(l, SCREEN_ABOUT); break;
   case ACTION_RESET_SETTINGS:
     gameOptionsReset(l->settings.options);
     launcherSaveSettings(&l->settings);
@@ -515,6 +519,36 @@ static void launcherDrawItem(Launcher *l, int index) {
   }
 }
 
+// The game's version, where it comes from, and the controls
+static void launcherDrawAbout() {
+  static const char *controls[][2] = {
+    {"Left / Right", "Turn"},
+    {"Up", "Thrust"},
+    {"Space or Left Ctrl", "Fire"},
+    {"Tab", "Hyperjump (and fly again after dying)"},
+    {"Z / X", "Move energy into / out of shields"},
+    {"S (hold)", "Scores and game rules"},
+    {"Esc", "Leave the game"},
+  };
+  char text[LEN];
+  int i;
+
+  gui_text_centered(40, 3.0f, COLOR_TITLE, "ABOUT");
+  snprintf(text, LEN, "NetSpaceWar %s", NSW_VERSION);
+  gui_text_centered(90, 2.0f, 0xffffff, text);
+  gui_text_centered(116, 1.0f, COLOR_TEXT, "A multiplayer network clone of Spacewar!");
+  gui_text_centered(132, 1.0f, COLOR_DIM, "Everyone in a game must have the same version.");
+  gui_text_centered(156, 1.0f, COLOR_TEXT, "github.com/josephcolton/NetSpaceWar");
+  gui_text_centered(172, 1.0f, COLOR_DIM, "Free software under the GNU General Public License v3");
+
+  gui_text_centered(208, 2.0f, COLOR_TITLE, "CONTROLS");
+  for (i=0; i < (int)(sizeof(controls) / sizeof(controls[0])); i++) {
+    float y = 236 + i * 18;
+    gui_text(300 - gui_text_width(1.0f, controls[i][0]), y, 1.0f, COLOR_FOCUS, controls[i][0]);
+    gui_text(316, y, 1.0f, COLOR_TEXT, controls[i][1]);
+  }
+}
+
 static void launcherDraw(Launcher *l) {
   int i, port, room;
   char info[LEN];
@@ -526,6 +560,8 @@ static void launcherDraw(Launcher *l) {
     gui_text_centered(140, 1.0f, COLOR_DIM, "Multiplayer Spacewar! over the network");
   } else if (l->screen == SCREEN_SETTINGS) {
     gui_text_centered(36, 3.0f, COLOR_TITLE, "GAME SETTINGS");
+  } else if (l->screen == SCREEN_ABOUT) {
+    launcherDrawAbout();
   } else {
     gui_text_centered(70, 3.0f, COLOR_TITLE, l->screen == SCREEN_HOST ? "HOST A GAME" : "JOIN A GAME");
   }
@@ -551,6 +587,7 @@ static void launcherDraw(Launcher *l) {
   if (l->status[0]) gui_text_centered(430, 1.0f, COLOR_ERROR, l->status);
   gui_text_centered(460, 1.0f, COLOR_DIM,
                     l->screen == SCREEN_MAIN ? "Up/Down or mouse to choose, Enter to select" :
+                    l->screen == SCREEN_ABOUT ? "Enter or Esc to go back" :
                     l->screen == SCREEN_SETTINGS ? "Left/Right or click to change, Esc to go back"
                                                  : "Tab to move, Enter to select, Esc to go back");
   SDL_RenderPresent(gui_get_renderer());

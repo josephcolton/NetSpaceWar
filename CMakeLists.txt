@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(NetSpaceWar VERSION 1.0.0
+project(NetSpaceWar VERSION 1.1.0
         DESCRIPTION "A multiplayer network clone of Spacewar!"
         HOMEPAGE_URL "https://github.com/josephcolton/NetSpaceWar"
         LANGUAGES C)
@@ -19,6 +19,8 @@ option(NSW_FETCH_SDL "Download and build SDL3 if it is not installed" ON)
 
 # OS_Linux / OS_Darwin / OS_Windows, used by #ifdef blocks in the clients
 add_compile_definitions(OS_${CMAKE_SYSTEM_NAME})
+# Players can only join a server with the same version (checked at login)
+add_compile_definitions(NSW_VERSION="${PROJECT_VERSION}")
 
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
   add_compile_options(-Wall)

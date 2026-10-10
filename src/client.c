@@ -15,6 +15,7 @@ void chandle_msg_loginack(int mysocket, void *packet, struct sockaddr_in server_
   message_t mtype;
   status_t status;
   object_t objectID;
+  char version[VERSION_MAX];
 
   if (DEBUG) printf("Packet Received: chandle_msg_loginack\n");
 
@@ -25,6 +26,10 @@ void chandle_msg_loginack(int mysocket, void *packet, struct sockaddr_in server_
   // Get the other variables
   status = ((struct msg_loginack *)packet)->status;
   objectID = ((struct msg_loginack *)packet)->objectID;
+  // A 1.0.0 server sends no version (the receive buffer is zeroed)
+  strncpy(version, ((struct msg_loginack *)packet)->version, VERSION_MAX);
+  version[VERSION_MAX - 1] = 0;
+  if (version[0] == 0) strcpy(version, VERSION_OLDEST);
 
   // Packet contents
   if (DEBUG) printf("  packet->mtype = %d\n", ((struct msg_loginack *)packet)->mtype);
@@ -47,6 +52,15 @@ void chandle_msg_loginack(int mysocket, void *packet, struct sockaddr_in server_
   if (status == STATUS_FULL) {
     snprintf(clientStatusMessage, LEN, "The server is full");
     printf("%s\n", clientStatusMessage);
+    clientAlive = 0;
+    return;
+  }
+  // Refused by a newer server, or let in by a 1.0.0 one that doesn't check
+  if (status == STATUS_VERSION || strcmp(version, NSW_VERSION) != 0) {
+    snprintf(clientStatusMessage, LEN, "The server has version %s and you have %s; they must match",
+             version, NSW_VERSION);
+    printf("%s\n", clientStatusMessage);
+    if (status == STATUS_OKAY) csend_msg_logout(mysocket, server_addr); // Free our slot
     clientAlive = 0;
     return;
   }
@@ -448,8 +462,10 @@ void csend_msg_login(int mysocket, struct sockaddr_in server_addr, char *usernam
   if (DEBUG) printf("Packet Created: csend_msg_login\n");
 
   // Construct the packet
+  memset(&packet, 0, sizeof(packet));
   packet.mtype = MSG_LOGIN;
   strncpy(packet.username, username, USERNAME_MAX);
+  strncpy(packet.version, NSW_VERSION, VERSION_MAX - 1);
 
   // Packet contents
   if (DEBUG) printf("  packet.mtype = %d\n", packet.mtype);

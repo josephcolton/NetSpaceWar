@@ -146,7 +146,7 @@ int main(int argc, char **argv) {
 
   // infine listening loop
   if (VERBOSE) printf("Ready for Connections\n");
-  serverLog("Listening on %s port %d", inet_ntoa(listen_addr), server_port);
+  serverLog("NetSpaceWar %s listening on %s port %d", NSW_VERSION, inet_ntoa(listen_addr), server_port);
   for (i=0; i < OPTION_COUNT; i++) {
     if (serverOptions[i] != gameOptions[i].defaultValue) serverLog("Rule: %s %d", gameOptions[i].label, serverOptions[i]);
   }

@@ -71,6 +71,7 @@ void shandle_msg_login(int mysocket, void *packet, struct sockaddr_in client_add
   message_t mtype;
   object_t objectID;
   char username[USERNAME_MAX];
+  char version[VERSION_MAX];
   double xcoord, ycoord;
 
   if (VERBOSE) printf("Packet Received: shandle_msg_login\n");
@@ -84,6 +85,17 @@ void shandle_msg_login(int mysocket, void *packet, struct sockaddr_in client_add
   strncpy(username, ((struct msg_login *)packet)->username, USERNAME_MAX);
   username[USERNAME_MAX - 1] = 0; // The packet's copy may not be terminated
   if (VERBOSE) printf("  packet->username = '%s'\n", username);
+
+  // Everyone must run the same version. 1.0.0 clients send no version
+  // (the receive buffer is zeroed, so it reads as empty).
+  strncpy(version, ((struct msg_login *)packet)->version, VERSION_MAX);
+  version[VERSION_MAX - 1] = 0;
+  if (version[0] == 0) strcpy(version, VERSION_OLDEST);
+  if (strcmp(version, NSW_VERSION) != 0) {
+    serverLog("%s could not join: they have version %s, the server has %s", username, version, NSW_VERSION);
+    ssend_msg_loginack(mysocket, client_addr, STATUS_VERSION, 0);
+    return;
+  }
 
   // Additional details
   if (VERBOSE) printf("  Processing:\n");
@@ -336,9 +348,11 @@ void ssend_msg_loginack(int mysocket, struct sockaddr_in client_addr, status_t s
   if (VERBOSE) printf("Packet Created: ssend_msg_loginack\n");
 
   // Construct the packet
+  memset(&packet, 0, sizeof(packet));
   packet.mtype = MSG_LOGINACK;
   packet.status = status;
   packet.objectID = objectID;
+  strncpy(packet.version, NSW_VERSION, VERSION_MAX - 1);
 
   // Send the packet
   bytes = sendto(mysocket,

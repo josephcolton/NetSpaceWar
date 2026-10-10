@@ -24,6 +24,11 @@
 #define packed
 #endif
 
+/* The game version from CMake; players must match the server's */
+#ifndef NSW_VERSION
+#define NSW_VERSION "dev"
+#endif
+
 /* Testing Variables */
 #define DEBUG 0
 
@@ -36,6 +41,8 @@
 #define MTU              1500
 #define MAX_PACKET       65536 // Receive buffer size; a full missile list is larger than MTU
 #define USERNAME_MAX     20
+#define VERSION_MAX      16 // Longest game version string, with its terminator
+#define VERSION_OLDEST   "1.0.0" // Sent no version: the only release before the check
 #define LEN              100
 #define SPACE_MIN_XCOORD -100.0
 #define SPACE_MAX_XCOORD 100.0
@@ -75,6 +82,7 @@
 #define STATUS_INUSE   1
 #define STATUS_INVALID 2
 #define STATUS_FULL    3
+#define STATUS_VERSION 4 // The client's version is not the server's
 
 /* Request Data Types */
 #define DATA_STATICOBJS 0
@@ -245,6 +253,7 @@ struct msg_loginack {
   message_t mtype; /* = MSG_LOGINACK */
   status_t status;
   object_t objectID;
+  char version[VERSION_MAX]; // The server's; empty from a 1.0.0 server
 } packed;
 
 // Report logout/disconnect to client
@@ -327,6 +336,7 @@ struct msg_deleteobj {
 struct msg_login {
   message_t mtype; /* = MSG_LOGIN */
   char username[USERNAME_MAX];
+  char version[VERSION_MAX]; // The client's; empty from a 1.0.0 client
 } packed;
 
 // Notify server of logout
@@ -364,7 +374,8 @@ _Static_assert(sizeof(struct dataNodePlanets) == 18, "dataNodePlanets wire size"
 _Static_assert(sizeof(struct msg_clientinfo) == 56, "msg_clientinfo wire size");
 _Static_assert(sizeof(struct msg_updateplayers) == 6, "msg_updateplayers wire size");
 _Static_assert(sizeof(struct msg_clientupdate) == 24, "msg_clientupdate wire size");
-_Static_assert(sizeof(struct msg_login) == 22, "msg_login wire size");
+_Static_assert(sizeof(struct msg_login) == 38, "msg_login wire size");
+_Static_assert(sizeof(struct msg_loginack) == 22, "msg_loginack wire size");
 _Static_assert(sizeof(struct wireScore) == 34, "wireScore wire size");
 _Static_assert(sizeof(struct msg_scoreboard) == 6, "msg_scoreboard wire size");
 _Static_assert(sizeof(struct msg_gameoptions) == 6, "msg_gameoptions wire size");
