@@ -34,6 +34,33 @@ void serverLog(const char *format, ...) {
   fflush(stdout);
 }
 
+// Show a line to every player, at the bottom of their screen
+void broadcastEvent(const char *format, ...) {
+  struct msg_event packet;
+  va_list args;
+  int i;
+
+  memset(&packet, 0, sizeof(packet));
+  packet.mtype = MSG_EVENT;
+  va_start(args, format);
+  vsnprintf(packet.text, EVENT_TEXT_MAX, format, args);
+  va_end(args);
+  for (i=0; i < sdataCountClients; i++) {
+    sendto(serverSocket, (const char *)&packet, sizeof(packet), 0,
+           (struct sockaddr *)sdataArrayClients[i]->client_addr, sizeof(struct sockaddr_in));
+  }
+}
+
+void serverEvent(const char *format, ...) {
+  char text[EVENT_TEXT_MAX];
+  va_list args;
+  va_start(args, format);
+  vsnprintf(text, sizeof(text), format, args);
+  va_end(args);
+  serverLog("%s", text);
+  broadcastEvent("%s", text);
+}
+
 const char *serverClientName(object_t objectID) {
   struct dataNodeClients *client = sdataLookupClient(objectID);
   return client ? client->username : "A player who left";
@@ -100,6 +127,7 @@ void checkClientKeepAlive() {
   for(i=0; i < sdataCountClients; i++) {
     if (sdataArrayClients[i]->checkin + (KEEPALIVE_LIMIT * 3) < curTime) {
       serverLog("%s timed out", sdataArrayClients[i]->username);
+      broadcastEvent("%s left (lost connection)", sdataArrayClients[i]->username);
       // Client has not reported in the last KEEPALIVE_LIMIT * 3 seconds
       // Tell the client to log out
       ssend_msg_logoutack(serverSocket, *(sdataArrayClients[i]->client_addr));
@@ -187,6 +215,7 @@ void shandle_msg_login(int mysocket, void *packet, struct sockaddr_in client_add
   ssend_msg_loginack(mysocket, client_addr, STATUS_OKAY, objectID);
   if (serverHostName[0] && strcmp(username, serverHostName) == 0) serverHostJoined = 1;
   serverLog("%s joined from %s:%d", username, inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+  broadcastEvent("%s joined", username);
 }
 
 void shandle_msg_logout(int mysocket, void *packet, struct sockaddr_in client_addr) {
@@ -207,7 +236,7 @@ void shandle_msg_logout(int mysocket, void *packet, struct sockaddr_in client_ad
 
   // Delete the client node
   objectID = sdataGetClientIDbyAddress(client_addr);
-  if (objectID > 0) serverLog("%s left", serverClientName(objectID));
+  if (objectID > 0) serverEvent("%s left", serverClientName(objectID));
   serverClientLeaving(objectID);
   sdataDeleteClient(objectID);
 }

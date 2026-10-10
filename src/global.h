@@ -164,6 +164,8 @@ static inline int versionCompatible(const char *version) {
 #define MSG_GAMEOPTIONS    15
 #define MSG_UPDATEORBS     16
 #define MSG_UPDATEASTEROIDS 17
+#define MSG_EVENT          18
+#define EVENT_TEXT_MAX     80 // Longest event line, with its terminator
 
 /* Define Actions */
 #define ACTION_THRUST   0
@@ -388,6 +390,12 @@ struct msg_updateasteroids {
   struct dataNodeAsteroids asteroids[]; // obj_count entries
 } packed;
 
+// A line for players to read: who destroyed whom, who joined or left
+struct msg_event {
+  message_t mtype; /* = MSG_EVENT */
+  char text[EVENT_TEXT_MAX];
+} packed;
+
 // Report explosion location to client
 struct msg_explosion {
   message_t mtype; /* = MSG_EXPLOSION */
@@ -467,6 +475,7 @@ _Static_assert(sizeof(struct dataNodeOrbs) == 40, "dataNodeOrbs wire size");
 _Static_assert(sizeof(struct msg_updateorbs) == 6, "msg_updateorbs wire size");
 _Static_assert(sizeof(struct dataNodeAsteroids) == 42, "dataNodeAsteroids wire size");
 _Static_assert(sizeof(struct msg_updateasteroids) == 6, "msg_updateasteroids wire size");
+_Static_assert(sizeof(struct msg_event) == 82, "msg_event wire size");
 _Static_assert(sizeof(struct msg_clientinfo) == 56, "msg_clientinfo wire size");
 _Static_assert(sizeof(struct msg_updateplayers) == 6, "msg_updateplayers wire size");
 _Static_assert(sizeof(struct msg_clientupdate) == 24, "msg_clientupdate wire size");

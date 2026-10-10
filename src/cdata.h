@@ -29,6 +29,16 @@ extern int cdataCountAsteroids;
 // When each planet (by position in cdataArrayPlanets) last gained or lost
 // its volcano, from platformNow(), for the animation; 0 if never
 extern double cdataPlanetChanged[MAX_COUNT_PLANETS];
+// Recent event lines (deaths, joins, leaves), oldest first, with the
+// platformNow() time each arrived
+#define CLIENT_EVENTS 4
+struct clientEvent {
+  char text[EVENT_TEXT_MAX];
+  double time;
+};
+extern struct clientEvent cdataEvents[CLIENT_EVENTS];
+extern int cdataCountEvents;
+void cdataAddEvent(const char *text); // Drops the oldest when full
 
 // The latest scoreboard from the server, in the server's order
 extern struct wireScore cdataScores[MAX_COUNT_CLIENTS];

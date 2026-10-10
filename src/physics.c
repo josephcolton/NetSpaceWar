@@ -25,12 +25,12 @@ static void reportDeath(object_t ship) {
   int i;
   const char *name = serverClientName(ship);
   for (i=0; i < lastHitCount && lastHits[i].ship != ship; i++);
-  if (i == lastHitCount) serverLog("%s was destroyed", name);
-  else if (lastHits[i].cause == HIT_PLANET) serverLog("%s crashed into a planet", name);
-  else if (lastHits[i].cause == HIT_ASTEROID) serverLog("%s crashed into an asteroid", name);
-  else if (lastHits[i].cause == HIT_SHIP) serverLog("%s was destroyed colliding with %s", name, serverClientName(lastHits[i].by));
-  else if (lastHits[i].by == ship) serverLog("%s was destroyed by their own missile", name);
-  else serverLog("%s was destroyed by %s", name, serverClientName(lastHits[i].by));
+  if (i == lastHitCount) serverEvent("%s was destroyed", name);
+  else if (lastHits[i].cause == HIT_PLANET) serverEvent("%s crashed into a planet", name);
+  else if (lastHits[i].cause == HIT_ASTEROID) serverEvent("%s crashed into an asteroid", name);
+  else if (lastHits[i].cause == HIT_SHIP) serverEvent("%s was destroyed colliding with %s", name, serverClientName(lastHits[i].by));
+  else if (lastHits[i].by == ship) serverEvent("%s was destroyed by their own missile", name);
+  else serverEvent("%s was destroyed by %s", name, serverClientName(lastHits[i].by));
 }
 
 void deadShipDetect() {

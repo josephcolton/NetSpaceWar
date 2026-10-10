@@ -28,6 +28,7 @@ static void gui_draw_asteroid(GuiArea *buffer, double rel_x, double rel_y, objec
 
 #define GUI_VOLCANO_CHANGE 1.5 // Seconds a volcano takes to appear or die out
 static void gui_draw_score();
+static void gui_draw_events();
 static void gui_draw_scoreboard();
 
 SDL_Window *gui_window = NULL;
@@ -309,6 +310,7 @@ void gui_update_display() {
   }
   gui_draw_hud(scr_buff,clientShip->shields,clientShip->energy);
   gui_draw_score();
+  gui_draw_events();
 
   // Show everyone's scores while S is held, and while waiting to respawn
   if (clientShip->status == 0) {
@@ -1065,6 +1067,31 @@ static void gui_draw_score() {
   snprintf(text, LEN, "Score %d", own ? own->score : 0);
   gui_text(8, 8, 2.0f, 0xffffff, text);
   gui_text(8, 30, 1.0f, 0x808080, "Hold S for scores and rules");
+}
+
+#define GUI_EVENT_SHOW 6.0 // Seconds an event line stays on screen...
+#define GUI_EVENT_FADE 1.5 // ...fading out over the last of them
+
+// Recent events (who destroyed whom, who joined or left) at the bottom of
+// the screen, newest lowest, fading away. Lines naming us are yellow.
+static void gui_draw_events() {
+  double now = platformNow(), age, fade;
+  float y = 410;
+  int i, color;
+
+  for (i = cdataCountEvents - 1; i >= 0; i--) {
+    age = now - cdataEvents[i].time;
+    if (age >= GUI_EVENT_SHOW) continue;
+    fade = (GUI_EVENT_SHOW - age) / GUI_EVENT_FADE;
+    if (fade > 1.0) fade = 1.0;
+    if (clientUsername[0] && strstr(cdataEvents[i].text, clientUsername)) {
+      color = gui_makecol((int)(255*fade), (int)(255*fade), (int)(64*fade));
+    } else {
+      color = gui_makecol((int)(220*fade), (int)(220*fade), (int)(220*fade));
+    }
+    gui_text_centered(y, 1.0f, color, cdataEvents[i].text);
+    y -= 14;
+  }
 }
 
 static int gui_compare_scores(const void *a, const void *b) {

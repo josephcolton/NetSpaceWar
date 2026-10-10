@@ -11,6 +11,10 @@ extern int serverLogLevel;
 #define VERBOSE (serverLogLevel >= LOG_VERBOSE)
 // Report a game event, with the time, unless --silent
 void serverLog(const char *format, ...);
+// Show a line to every player (deaths, joins, leaves)...
+void broadcastEvent(const char *format, ...);
+// ...and also log it
+void serverEvent(const char *format, ...);
 // A client's username for messages; they may already have left
 const char *serverClientName(object_t objectID);
 

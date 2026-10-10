@@ -454,6 +454,14 @@ void chandle_msg_updateasteroids(int mysocket, void *packet, struct sockaddr_in 
   cdataCountAsteroids = count;
 }
 
+void chandle_msg_event(int mysocket, void *packet, struct sockaddr_in server_addr) {
+  char text[EVENT_TEXT_MAX];
+  if (((struct msg_event *)packet)->mtype != MSG_EVENT) return;
+  memcpy(text, ((struct msg_event *)packet)->text, EVENT_TEXT_MAX);
+  text[EVENT_TEXT_MAX - 1] = 0; // The packet's copy may not be terminated
+  cdataAddEvent(text);
+}
+
 void chandle_msg_updateorbs(int mysocket, void *packet, struct sockaddr_in server_addr) {
   int count = ((struct msg_updateorbs *)packet)->obj_count;
 
@@ -720,6 +728,7 @@ message_t clientReceive(int mysocket) {
   if (mtype == MSG_GAMEOPTIONS)    chandle_msg_gameoptions(mysocket, packet, server_addr);
   if (mtype == MSG_UPDATEORBS)     chandle_msg_updateorbs(mysocket, packet, server_addr);
   if (mtype == MSG_UPDATEASTEROIDS) chandle_msg_updateasteroids(mysocket, packet, server_addr);
+  if (mtype == MSG_EVENT)          chandle_msg_event(mysocket, packet, server_addr);
 
   free(packet);
   return mtype;

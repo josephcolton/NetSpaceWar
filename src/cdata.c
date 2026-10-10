@@ -19,6 +19,19 @@ int cdataCountOrbs;
 struct dataNodeAsteroids cdataAsteroids[MAX_COUNT_ASTEROIDS];
 int cdataCountAsteroids;
 double cdataPlanetChanged[MAX_COUNT_PLANETS];
+struct clientEvent cdataEvents[CLIENT_EVENTS];
+int cdataCountEvents;
+
+void cdataAddEvent(const char *text) {
+  if (cdataCountEvents == CLIENT_EVENTS) {
+    memmove(&cdataEvents[0], &cdataEvents[1], sizeof(struct clientEvent) * (CLIENT_EVENTS - 1));
+    cdataCountEvents--;
+  }
+  strncpy(cdataEvents[cdataCountEvents].text, text, EVENT_TEXT_MAX - 1);
+  cdataEvents[cdataCountEvents].text[EVENT_TEXT_MAX - 1] = 0;
+  cdataEvents[cdataCountEvents].time = platformNow();
+  cdataCountEvents++;
+}
 struct wireScore cdataScores[MAX_COUNT_CLIENTS];
 int cdataCountScores;
 int cdataOptions[OPTION_COUNT];
@@ -62,6 +75,7 @@ void cdataInitialize() {
   cdataCountPlanets = 0;
   cdataCountOrbs = 0;
   cdataCountAsteroids = 0;
+  cdataCountEvents = 0;
   for (i=0; i < MAX_COUNT_PLANETS; i++) cdataPlanetChanged[i] = 0.0;
   cdataCountScores = 0;
 
