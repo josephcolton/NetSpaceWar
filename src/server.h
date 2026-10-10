@@ -29,6 +29,7 @@ void ssend_msg_deleteobj(int mysocket, struct sockaddr_in client_addr, data_t ob
 /* Broadcast Messages */
 void broadcastUpdatePlayers();
 void broadcastUpdateMissiles();
+void broadcastScoreboard();
 void broadcastDeleteMissile(object_t objectID);
 void broadcastDeleteShip(object_t objectID);
 

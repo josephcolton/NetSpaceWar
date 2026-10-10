@@ -73,6 +73,7 @@ The AI hunts the nearest ship, leads its shots, steers clear of planets, and mov
 | Tab | Hyperjump (also respawns after you die) |
 | Z | Move energy to shields |
 | X | Move shields to energy |
+| S (hold) | Show the scoreboard |
 | Escape | Leave the game |
 
 The window can be resized; the game scales to fit.
@@ -83,4 +84,4 @@ The window can be resized; the game scales to fit.
 - A missile hit takes 25 shields. Below zero shields, your ship explodes.
 - Planets pull you in with gravity, and touching one does heavy damage.
 - The universe wraps around at the edges.
-- Scoring: 10 points for a hit, 100 for a kill, and -100 for dying.
+- Scoring: 10 points for a hit, 100 for a kill, and -100 for dying (scores never go below 0). Hitting yourself scores nothing. Hold S to see everyone's score, kills and deaths; the scoreboard also appears while you wait to respawn.

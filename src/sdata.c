@@ -16,7 +16,7 @@ struct dataNodeExplosions *sdataArrayExplosions[MAX_COUNT_EXPLOSIONS];
 struct dataNodeShips *sdataArrayShips[MAX_COUNT_SHIPS];
 struct dataNodeMissiles *sdataArrayMissiles[MAX_COUNT_MISSILES];
 struct dataNodePlanets *sdataArrayPlanets[MAX_COUNT_PLANETS];
-int sdataArrayScores[MAX_COUNT_CLIENTS][2];
+int scoreChanged;
 
 /* Server Data Access Functions */
 object_t sdataNewObjectID() {
@@ -44,10 +44,7 @@ void sdataInitialize() {
   for (i=0; i < MAX_COUNT_SHIPS; i++) sdataArrayShips[i] = NULL;
   for (i=0; i < MAX_COUNT_MISSILES; i++) sdataArrayMissiles[i] = NULL;
   for (i=0; i < MAX_COUNT_PLANETS; i++) sdataArrayPlanets[i] = NULL;
-  for (i=0; i < MAX_COUNT_CLIENTS; i++) {
-    sdataArrayScores[i][0] = 0; // Client objectID
-    sdataArrayScores[i][1] = 0; // Client score
-  }
+  scoreChanged = 0;
 
   // Initialize all of the object counts
   sdataCountClients = 0;
@@ -67,49 +64,35 @@ int lastTimeLeft(int usec) {
   return usec - timePassed;
 }
 
-// Scores
+// Scores live on the client record; ships and missile owners share the
+// client's objectID. Any change sets scoreChanged so the scoreboard goes out.
 void scoreAdd(object_t objectID, int score) {
-  int i;
-
-  if (objectID <= 0) return;
-
-  for(i=0; i < MAX_COUNT_CLIENTS; i++) {
-    if (sdataArrayScores[i][0] == objectID) {
-      sdataArrayScores[i][1] += score;
-      // Make sure the score is not negative
-      if (sdataArrayScores[i][1] < 0) {
-	sdataArrayScores[i][1] = 0;
-      }
-      break;
-    }
-  }
+  struct dataNodeClients *client = sdataLookupClient(objectID);
+  if (client == NULL) return;
+  client->score += score;
+  // Make sure the score is not negative
+  if (client->score < 0) client->score = 0;
+  scoreChanged = 1;
 }
 
 int scoreGet(object_t objectID) {
-  int i;
-
-  if (objectID <= 0) return 0;
-
-  for(i=0; i < MAX_COUNT_CLIENTS; i++) {
-    if (sdataArrayScores[i][0] == objectID) {
-      return sdataArrayScores[i][1];
-    }
-  }
-
-  return 0;
+  struct dataNodeClients *client = sdataLookupClient(objectID);
+  if (client == NULL) return 0;
+  return client->score;
 }
 
-void scoreSet(object_t objectID, int score) {
-  int i;
+void scoreCountKill(object_t objectID) {
+  struct dataNodeClients *client = sdataLookupClient(objectID);
+  if (client == NULL) return;
+  client->kills++;
+  scoreChanged = 1;
+}
 
-  if (objectID <= 0) return;
-
-  for(i=0; i < MAX_COUNT_CLIENTS; i++) {
-    if (sdataArrayScores[i][0] == objectID) {
-      sdataArrayScores[i][1] = score;
-      break;
-    }
-  }
+void scoreCountDeath(object_t objectID) {
+  struct dataNodeClients *client = sdataLookupClient(objectID);
+  if (client == NULL) return;
+  client->deaths++;
+  scoreChanged = 1;
 }
 
 // Client Information
@@ -165,6 +148,10 @@ int sdataCreateClient(char *username, object_t objectID, struct sockaddr_in clie
   newNode->client_addr = newAddr;
   newNode->objectID = objectID;
   newNode->checkin = time(NULL);
+  newNode->score = 0;
+  newNode->kills = 0;
+  newNode->deaths = 0;
+  scoreChanged = 1; // A new line on the scoreboard
 
   // Return true
   return SW_TRUE;
@@ -317,6 +304,7 @@ void sdataDeleteClient(object_t objectID) {
       // Now we will free the array spaces
       free(delAddr);
       free(delNode);
+      scoreChanged = 1; // Their line leaves the scoreboard
       break;
     }
   }

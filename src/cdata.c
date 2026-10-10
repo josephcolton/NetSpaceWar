@@ -14,6 +14,8 @@ int cdataCountExplosions;
 int cdataCountShips;
 int cdataCountMissiles;
 int cdataCountPlanets;
+struct wireScore cdataScores[MAX_COUNT_CLIENTS];
+int cdataCountScores;
 struct dataNodeClients *cdataArrayClients[MAX_COUNT_CLIENTS];
 struct dataNodeExplosions *cdataArrayExplosions[MAX_COUNT_EXPLOSIONS];
 struct dataNodeShips *cdataArrayShips[MAX_COUNT_SHIPS];
@@ -51,6 +53,7 @@ void cdataInitialize() {
   cdataCountShips = 0;
   cdataCountMissiles = 0;
   cdataCountPlanets = 0;
+  cdataCountScores = 0;
 
   // Initialize the checkin
   clientCheckin = 0;

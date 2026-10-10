@@ -21,6 +21,8 @@ void gui_draw_hud(GuiArea *buffer, int shield, int energy);
 void gui_draw_radar(GuiArea *buffer);
 void gui_draw_stars(GuiArea *buffer, double mv_x, double mv_y);
 void gui_draw_planet(GuiArea *buffer, double rel_x, double rel_y, double radius);
+static void gui_draw_score();
+static void gui_draw_scoreboard();
 
 SDL_Window *gui_window = NULL;
 SDL_Renderer *gui_renderer = NULL;
@@ -272,8 +274,17 @@ void gui_update_display() {
     }
   }
   gui_draw_hud(scr_buff,clientShip->shields,clientShip->energy);
+  gui_draw_score();
 
-  
+  // Show everyone's scores while S is held, and while waiting to respawn
+  if (clientShip->status == 0) {
+    gui_text_centered(80, 2.0f, 0xffffff, "Your ship was destroyed");
+    gui_text_centered(104, 1.0f, 0xc0c0c0, "Press Tab to fly again");
+  }
+  if (clientShip->status == 0 || SDL_GetKeyboardState(NULL)[SDL_SCANCODE_S]) {
+    gui_draw_scoreboard();
+  }
+
   SDL_RenderPresent(gui_renderer);
 }
 
@@ -865,4 +876,73 @@ void gui_draw_status(const char *title, const char *detail) {
     gui_text_centered(GUI_SCREEN_H / 2 + 8, 1.0f, 0xa0a0a0, detail);
   }
   SDL_RenderPresent(gui_renderer);
+}
+
+// The scoreboard entry for our own ship, or NULL before the first scoreboard
+static struct wireScore *gui_own_score() {
+  int i;
+  for (i=0; i < cdataCountScores; i++) {
+    if (cdataScores[i].objectID == clientObjectID) return &cdataScores[i];
+  }
+  return NULL;
+}
+
+// Our score in the top left corner, clear of the radar
+static void gui_draw_score() {
+  char text[LEN];
+  struct wireScore *own = gui_own_score();
+  snprintf(text, LEN, "Score %d", own ? own->score : 0);
+  gui_text(8, 8, 2.0f, 0xffffff, text);
+  gui_text(8, 30, 1.0f, 0x808080, "Hold S for scores");
+}
+
+static int gui_compare_scores(const void *a, const void *b) {
+  const struct wireScore *sa = a, *sb = b;
+  if (sa->score != sb->score) return sb->score - sa->score;
+  if (sa->kills != sb->kills) return sb->kills - sa->kills;
+  return sa->deaths - sb->deaths;
+}
+
+// Everyone's scores, best first, over the game
+static void gui_draw_scoreboard() {
+  struct wireScore sorted[MAX_COUNT_CLIENTS];
+  char text[LEN];
+  int i, color, count = cdataCountScores;
+  float w = 420, rowH = 22;
+  float h = 70 + count * rowH;
+  float x = (GUI_SCREEN_W - w) / 2, y = 140;
+  float colName = x + 20, colScore = x + 230, colKills = x + 300, colDeaths = x + 360;
+
+  memcpy(sorted, cdataScores, sizeof(struct wireScore) * count);
+  qsort(sorted, count, sizeof(struct wireScore), gui_compare_scores);
+
+  // See-through panel so the game stays visible behind it
+  SDL_SetRenderDrawBlendMode(gui_renderer, SDL_BLENDMODE_BLEND);
+  SDL_SetRenderDrawColor(gui_renderer, 0, 0, 20, 200);
+  {
+    SDL_FRect panel = {x, y, w, h};
+    SDL_RenderFillRect(gui_renderer, &panel);
+  }
+  SDL_SetRenderDrawBlendMode(gui_renderer, SDL_BLENDMODE_NONE);
+  gui_outline_rect(x, y, w, h, 0x60c0ff);
+
+  gui_text_centered(y + 12, 2.0f, 0x60c0ff, "SCORES");
+  gui_text(colName, y + 40, 1.0f, 0x808080, "Player");
+  gui_text(colScore, y + 40, 1.0f, 0x808080, "Score");
+  gui_text(colKills, y + 40, 1.0f, 0x808080, "Kills");
+  gui_text(colDeaths, y + 40, 1.0f, 0x808080, "Deaths");
+
+  for (i=0; i < count; i++) {
+    float rowY = y + 58 + i * rowH;
+    // Our own line stands out
+    color = (sorted[i].objectID == clientObjectID) ? 0xffff40 : 0xffffff;
+    snprintf(text, LEN, "%.12s", sorted[i].username); // Long names would run into the numbers
+    gui_text(colName, rowY, 2.0f, color, text);
+    snprintf(text, LEN, "%d", sorted[i].score);
+    gui_text(colScore, rowY, 2.0f, color, text);
+    snprintf(text, LEN, "%d", sorted[i].kills);
+    gui_text(colKills, rowY, 2.0f, color, text);
+    snprintf(text, LEN, "%d", sorted[i].deaths);
+    gui_text(colDeaths, rowY, 2.0f, color, text);
+  }
 }

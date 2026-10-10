@@ -364,15 +364,26 @@ void chandle_msg_clientlist(int mysocket, void *packet, struct sockaddr_in serve
 
 void chandle_msg_scoreboard(int mysocket, void *packet, struct sockaddr_in server_addr) {
   message_t mtype;
+  int i, count;
 
   if (DEBUG) printf("Packet Received: chandle_msg_scoreboard\n");
 
   // Verify message type
   mtype = ((struct msg_scoreboard *)packet)->mtype;
   if (mtype != MSG_SCOREBOARD) return;
+  count = ((struct msg_scoreboard *)packet)->obj_count;
+  // Never read past the receive buffer, whatever the packet claims
+  if (count < 0) count = 0;
+  if (count > MAX_COUNT_CLIENTS) count = MAX_COUNT_CLIENTS;
 
-  // Get the other variables
-  // Do something useful
+  // The scoreboard replaces the previous one
+  for (i=0; i < count; i++) {
+    cdataScores[i] = ((struct msg_scoreboard *)packet)->scores[i];
+    cdataScores[i].username[USERNAME_MAX - 1] = 0; // The packet's copy may not be terminated
+    if (DEBUG) printf("  packet->scores[%d] = '%s' score %d kills %d deaths %d\n", i,
+                      cdataScores[i].username, cdataScores[i].score, cdataScores[i].kills, cdataScores[i].deaths);
+  }
+  cdataCountScores = count;
 }
 
 void chandle_msg_deleteobj(int mysocket, void *packet, struct sockaddr_in server_addr) {

@@ -33,12 +33,13 @@ extern struct dataNodeExplosions *sdataArrayExplosions[MAX_COUNT_EXPLOSIONS];
 extern struct dataNodeShips *sdataArrayShips[MAX_COUNT_SHIPS];
 extern struct dataNodeMissiles *sdataArrayMissiles[MAX_COUNT_MISSILES];
 extern struct dataNodePlanets *sdataArrayPlanets[MAX_COUNT_PLANETS];
-extern int sdataArrayScores[MAX_COUNT_CLIENTS][2];
+extern int scoreChanged; // Set when the scoreboard needs sending
 
 // Keep track of scores
 void scoreAdd(object_t objectID, int score);
 int scoreGet(object_t objectID);
-void scoreSet(object_t objectID, int score);
+void scoreCountKill(object_t objectID);
+void scoreCountDeath(object_t objectID);
 
 /* Server Data Access Functions */
 // Existance Functions

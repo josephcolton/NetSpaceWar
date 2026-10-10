@@ -167,6 +167,7 @@ int main(int argc, char **argv) {
       // Broadcast updates
       broadcastUpdatePlayers();
       broadcastUpdateMissiles();
+      broadcastScoreboard();
     }
 
     // Packet Received

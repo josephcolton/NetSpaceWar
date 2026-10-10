@@ -52,10 +52,11 @@ Client keys: arrows turn/thrust, Space or Left Ctrl fires, Tab hyperjumps, Z/X m
 
 ## Roadmap
 
-- **Launcher follow-ups**: show scores (the `MSG_SCOREBOARD` handlers are empty stubs); an orphaned server keeps running if the game process crashes; `DEBUG` is still compiled on, so the client prints every packet.
+- **Launcher follow-ups**: an orphaned server keeps running if the game process crashes; `DEBUG` is still compiled on, so the client prints every packet.
 
 ## Notes
 
+- **Scores** live on the server's `dataNodeClients` (`score`, `kills`, `deaths`). Ships and missile owners share the client's objectID, so `scoreAdd()`/`scoreCountKill()`/`scoreCountDeath()` look the client up by that ID and set `scoreChanged`. Kills and hit points are awarded in the missile collision code; every death (any cause) and its `POINTS_DIE` penalty are applied in `deadShipDetect()`. `broadcastScoreboard()` runs every tick and sends `msg_scoreboard` (`wireScore` entries that include usernames) when `scoreChanged` is set, or every `SCOREBOARD_TICKS`. Clients keep the latest copy in `cdataScores`; `gui.c` draws your score in the HUD and the full table while S is held or your ship is dead.
 - `physicsUpdate()` must call `deadShipDetect()` last. If it runs first, ships sit at negative shields for a tick and a power transfer or shield restore can revive them.
 - Collision scoring in `physics.c` looks swapped: a kill awards `POINTS_HIT` and a non-fatal hit awards `POINTS_KILL`.
 - `DEBUG` is hard-coded to 1 in `global.h`, so the server and clients print every packet they receive.

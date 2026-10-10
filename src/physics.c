@@ -19,6 +19,10 @@ void deadShipDetect() {
       sdataArrayShips[i]->energy = 0;
       sdataArrayShips[i]->shields = 0;
       sdataArrayShips[i]->status = 0; // ship is marked as dead
+      // Every death counts, whatever caused it; the owner of a fatal
+      // missile already got credit for the kill
+      scoreCountDeath(sdataArrayShips[i]->objectID);
+      scoreAdd(sdataArrayShips[i]->objectID, POINTS_DIE);
       // Get the ship location
       xcoord = sdataArrayShips[i]->xcoord;
       ycoord = sdataArrayShips[i]->ycoord;
@@ -235,13 +239,16 @@ void physicsUpdateCollisions() {
       if (inRange(x1, y1, x2, y2, range)) {
 	// Take missile damage
 	sdataArrayShips[i]->shields -= COLLISION_EXP;
-	// Missile owner gets points
-	if (sdataArrayShips[i]->shields < 0) {
-	  // Points for killing the ship
-	  scoreAdd(sdataArrayMissiles[j]->owner, POINTS_KILL);
-	} else {
-	  // Points for a regular hit
-	  scoreAdd(sdataArrayMissiles[j]->owner, POINTS_HIT);
+	// Missile owner gets points, but not for hitting themselves
+	if (sdataArrayMissiles[j]->owner != sdataArrayShips[i]->objectID) {
+	  if (sdataArrayShips[i]->shields < 0) {
+	    // Points for killing the ship
+	    scoreAdd(sdataArrayMissiles[j]->owner, POINTS_KILL);
+	    scoreCountKill(sdataArrayMissiles[j]->owner);
+	  } else {
+	    // Points for a regular hit
+	    scoreAdd(sdataArrayMissiles[j]->owner, POINTS_HIT);
+	  }
 	}
 	// Missile explodes
 	objectID = sdataArrayMissiles[j]->objectID;

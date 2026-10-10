@@ -60,6 +60,7 @@
 #define POINTS_HIT       10
 #define POINTS_KILL      100
 #define POINTS_DIE       -100
+#define SCOREBOARD_TICKS 20 // Resend the scoreboard at least this often (in physics ticks)
 
 /* Maximum Counts on data types */
 #define MAX_COUNT_CLIENTS    5
@@ -173,6 +174,18 @@ struct dataNodeClients {
   char username[USERNAME_MAX];
   object_t objectID;
   time_t checkin;
+  int32_t score;
+  int32_t kills;
+  int32_t deaths;
+} packed;
+
+// One player's line on the scoreboard
+struct wireScore {
+  object_t objectID;
+  char username[USERNAME_MAX];
+  int32_t score;
+  int32_t kills;
+  int32_t deaths;
 } packed;
 
 // One entry of msg_clientlist. dataNodeClients holds a pointer and a
@@ -285,9 +298,11 @@ struct msg_clientlist {
   struct wireClient clients[]; // obj_count entries
 } packed;
 
-// Report scoreboard in objectID/score pairs
+// Report every player's score
 struct msg_scoreboard {
   message_t mtype; /* = MSG_SCOREBOARD */
+  int32_t obj_count;
+  struct wireScore scores[]; // obj_count entries
 } packed;
 
 struct msg_deleteobj {
@@ -339,5 +354,7 @@ _Static_assert(sizeof(struct msg_clientinfo) == 56, "msg_clientinfo wire size");
 _Static_assert(sizeof(struct msg_updateplayers) == 6, "msg_updateplayers wire size");
 _Static_assert(sizeof(struct msg_clientupdate) == 24, "msg_clientupdate wire size");
 _Static_assert(sizeof(struct msg_login) == 22, "msg_login wire size");
+_Static_assert(sizeof(struct wireScore) == 34, "wireScore wire size");
+_Static_assert(sizeof(struct msg_scoreboard) == 6, "msg_scoreboard wire size");
 
 #endif

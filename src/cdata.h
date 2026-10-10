@@ -20,6 +20,10 @@ extern int cdataCountShips;
 extern int cdataCountMissiles;
 extern int cdataCountPlanets;
 
+// The latest scoreboard from the server, in the server's order
+extern struct wireScore cdataScores[MAX_COUNT_CLIENTS];
+extern int cdataCountScores;
+
 // We need an array for each type of data.
 extern struct dataNodeClients *cdataArrayClients[MAX_COUNT_CLIENTS];
 extern struct dataNodeExplosions *cdataArrayExplosions[MAX_COUNT_EXPLOSIONS];

@@ -261,11 +261,7 @@ void shandle_msg_clientupdate(int mysocket, void *packet, struct sockaddr_in cli
       clientShip->status = 1;
       clientShip->energy = SHIP_MAX_ENERGY;
       clientShip->shields = SHIP_MAX_SHIELDS;
-      scoreAdd(clientShip->objectID, POINTS_DIE);
-      if (scoreGet(clientShip->objectID) < 0) {
-	// We do not want to give negative points
-	scoreSet(clientShip->objectID, 0);
-      }
+      // The penalty for dying was taken when the ship was destroyed
     }
 
   }
@@ -394,6 +390,7 @@ void ssend_msg_staticobjs(int mysocket, struct sockaddr_in client_addr) {
   if (bytes < 0) {
     printf("Error: unable to send msg_staticobjs: %d\n", netLastError());
   }
+  free(packet);
 }
 
 void ssend_msg_clientinfo(int mysocket, struct sockaddr_in client_addr) {
@@ -508,6 +505,7 @@ void ssend_msg_updateplayers(int mysocket, struct sockaddr_in client_addr) {
 
 
 
+  free(packet);
 }
 
 void ssend_msg_updatemissiles(int mysocket, struct sockaddr_in client_addr) {
@@ -557,6 +555,7 @@ void ssend_msg_updatemissiles(int mysocket, struct sockaddr_in client_addr) {
   if (bytes < 0) {
     printf("Error: unable to send msg_updatemissiles: %d\n", netLastError());
   }
+  free(packet);
 }
 
 void ssend_msg_explosion(int mysocket, struct sockaddr_in client_addr, double xcoord, double ycoord) {
@@ -623,10 +622,46 @@ void ssend_msg_clientlist(int mysocket, struct sockaddr_in client_addr) {
   if (bytes < 0) {
     printf("Error: unable to send msg_clientlist: %d\n", netLastError());
   }
+  free(packet);
 }
 
 void ssend_msg_scoreboard(int mysocket, struct sockaddr_in client_addr) {
+  int bytes;
+  int i;
+  struct msg_scoreboard *packet = NULL;
+  int packetSize = 0;
+
   if (DEBUG) printf("Packet Created: ssend_msg_scoreboard\n");
+
+  // Determine packet size and create packet
+  packetSize = sizeof(struct msg_scoreboard);
+  packetSize += sizeof(struct wireScore) * sdataCountClients;
+  packet = (struct msg_scoreboard *)calloc(1, packetSize);
+
+  // Populate the packet
+  packet->mtype = MSG_SCOREBOARD;
+  packet->obj_count = sdataCountClients;
+  for(i=0; i < sdataCountClients; i++) {
+    (packet->scores[i]).objectID = sdataArrayClients[i]->objectID;
+    strncpy((packet->scores[i]).username, sdataArrayClients[i]->username, USERNAME_MAX);
+    (packet->scores[i]).score = sdataArrayClients[i]->score;
+    (packet->scores[i]).kills = sdataArrayClients[i]->kills;
+    (packet->scores[i]).deaths = sdataArrayClients[i]->deaths;
+  }
+
+  // Send the packet
+  bytes = sendto(mysocket,
+		 (const char *)packet,
+		 packetSize,
+		 0,
+		 (struct sockaddr *)&client_addr,
+		 sizeof(client_addr));
+
+  // See if we got any errors
+  if (bytes < 0) {
+    printf("Error: unable to send msg_scoreboard: %d\n", netLastError());
+  }
+  free(packet);
 }
 
 void ssend_msg_deleteobj(int mysocket, struct sockaddr_in client_addr, data_t object_type, object_t objectID) {
@@ -661,6 +696,22 @@ void broadcastUpdatePlayers() {
   // Send updates to all players
   for (i=0; i < sdataCountClients; i++) {
     ssend_msg_updateplayers(serverSocket, *(sdataArrayClients[i]->client_addr));
+  }
+}
+
+void broadcastScoreboard() {
+  // Called every tick: send when a score changes, and every
+  // SCOREBOARD_TICKS anyway in case a packet was lost
+  static int ticksSinceSent = 0;
+  int i;
+
+  ticksSinceSent++;
+  if (!scoreChanged && ticksSinceSent < SCOREBOARD_TICKS) return;
+  scoreChanged = 0;
+  ticksSinceSent = 0;
+
+  for (i=0; i < sdataCountClients; i++) {
+    ssend_msg_scoreboard(serverSocket, *(sdataArrayClients[i]->client_addr));
   }
 }
 
