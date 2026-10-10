@@ -694,14 +694,16 @@ static void launcherDrawItem(Launcher *l, int index) {
 // Which gamepad is connected, and its controls (Options screen)
 static void launcherDrawGamepad() {
   // Named the way this controller labels them (A or Cross...)
+  int nintendo = gui_gamepad_nintendo();
   const char *controls[][2] = {
     {"Left stick / D-pad", "Turn"},
-    {"Right trigger", "Thrust"},
+    {nintendo ? "ZR" : "Right trigger", "Thrust"},
+    {gui_pad_role_name(GUI_PAD_BACK), "Thrust"},
     {gui_pad_role_name(GUI_PAD_FIRE), "Fire, choose in menus, fly again"},
     {gui_pad_role_name(GUI_PAD_JUMP), "Hyperjump"},
-    {"Left / right bumper", "Power to shields / weapons"},
-    {"Back (hold)", "Scores"},
-    {"Start", "Leave the game"},
+    {nintendo ? "L / R" : "Left / right bumper", "Power to shields / weapons"},
+    {nintendo ? "- (hold)" : "Back (hold)", "Scores"},
+    {nintendo ? "+" : "Start", "Leave the game"},
   };
   const char *name = gui_gamepad_name();
   char text[LEN];

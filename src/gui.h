@@ -38,9 +38,11 @@ If there is a failure initializing SDL then this function will not return, since
 void gui_gamepad_event(SDL_Event *event);
 // The connected gamepad's name, or NULL
 const char *gui_gamepad_name();
+// True for Nintendo controllers, whose triggers, bumpers and menu buttons are ZR, L/R, - and +
+int gui_gamepad_nintendo();
 // Gamepad face buttons by job, matched to the labels printed on them
 #define GUI_PAD_FIRE 0 // A (Cross): fire, and choose in menus
-#define GUI_PAD_BACK 1 // B (Circle): back in menus
+#define GUI_PAD_BACK 1 // B (Circle): back in menus, thrust in a game
 #define GUI_PAD_JUMP 2 // Y (Triangle): hyperjump
 SDL_GamepadButton gui_pad_role(int role);
 const char *gui_pad_role_name(int role);

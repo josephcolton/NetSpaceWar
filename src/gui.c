@@ -55,6 +55,12 @@ void gui_gamepad_event(SDL_Event *event) {
   }
 }
 
+int gui_gamepad_nintendo() {
+  SDL_GamepadType type = gui_pad ? SDL_GetGamepadType(gui_pad) : SDL_GAMEPAD_TYPE_UNKNOWN;
+  return type == SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO || type == SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR ||
+         type == SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_LEFT || type == SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT;
+}
+
 const char *gui_gamepad_name() {
   return gui_pad ? SDL_GetGamepadName(gui_pad) : NULL;
 }
@@ -490,7 +496,8 @@ int gui_get_input(double *angle_change, double *accel_amount, int *energy_to_shi
 	*angle_change = turn * seconds_diff * P_GUI_ANGLE_PER_SECOND;
 
 	thrust = gui_pad_axis(SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
-	if (key[SDL_SCANCODE_UP] || gui_pad_button(SDL_GAMEPAD_BUTTON_DPAD_UP)) thrust = 1;
+	// B (back in the menus) also thrusts, beside A's fire
+	if (key[SDL_SCANCODE_UP] || gui_pad_button(SDL_GAMEPAD_BUTTON_DPAD_UP) || gui_pad_button(gui_pad_role(GUI_PAD_BACK))) thrust = 1;
 	*accel_amount = thrust * seconds_diff * P_GUI_ACCEL_PER_SECOND;
 
 	if (key[SDL_SCANCODE_SPACE]||key[SDL_SCANCODE_LCTRL]||gui_pad_button(gui_pad_role(GUI_PAD_FIRE))) // fire
