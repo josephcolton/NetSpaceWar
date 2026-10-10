@@ -1,6 +1,8 @@
 # NetSpaceWar
 Network based Space War: a multiplayer clone of Spacewar! Fly around a looping universe, dodge planets, and shoot down other players and AI bots.
 
+![A game in progress, with the scoreboard and game rules shown](docs/images/game.png)
+
 ## Building
 
 NetSpaceWar uses CMake. From the repository root:
@@ -46,9 +48,18 @@ Building natively on Windows with MSVC should also work through CMake, but it ha
 
 Run `NetSpaceWar` (on Windows, double-click `NetSpaceWar.exe`).
 
+<p>
+  <img src="docs/images/menu.png" width="48%" alt="The main menu: Host Game, Join Game, Quit">
+  <img src="docs/images/host.png" width="48%" alt="The Host a Game screen: name, port, AI bots, and the address others can join">
+</p>
+
 - **Host Game** starts a game on your computer. Choose your name, a port, and how many AI bots to add (up to 4; a game holds 5 ships). The screen shows the address other players can use to join. On Windows, allow the firewall prompt so they can reach you.
   - **Game Settings** changes the rules for games you host: number of planets, gravity, missile life, top speed, crash and missile damage, and the energy cost of shots and hyperjumps. Changed values are highlighted, and **Reset to Defaults** puts them all back. Everyone who joins, bots included, gets the host's rules: players see them by holding S.
 - **Join Game** connects to someone else's game by address and port.
+
+<p align="center">
+  <img src="docs/images/settings.png" width="60%" alt="The Game Settings screen, with planets, gravity and max speed changed from their defaults">
+</p>
 
 Press Escape during a game to return to the menu. Your choices are remembered for next time.
 
