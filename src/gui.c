@@ -832,7 +832,9 @@ void gui_draw_radar(GuiArea *buffer)
   int volcano_col =   gui_makecol(255,120,0);
   int orb_col     =   gui_makecol(0,255,255);
   int asteroid_col =  gui_makecol(200,200,200);
-  
+  SDL_Rect clip;
+  int wrapX, wrapY;
+
   int i;
 
   if (DEBUG) printf("gui_draw_radar()\n");
@@ -854,17 +856,29 @@ void gui_draw_radar(GuiArea *buffer)
     return;
   }
 
-  // Draw Planets
+  // Keep everything inside the radar box
+  clip.x = buffer->x;
+  clip.y = buffer->y;
+  clip.w = buffer->w;
+  clip.h = buffer->h;
+  SDL_SetRenderClipRect(gui_renderer, &clip);
+
+  // Draw Planets. Space wraps around, so a planet on an edge also shows on
+  // the opposite edge, as it does in the main view.
   for (i=0; i < cdataCountPlanets; i++) {
     if (cdataArrayPlanets[i] == NULL) continue;
     xcoord = cdataArrayPlanets[i]->xcoord;
     ycoord = cdataArrayPlanets[i]->ycoord;
     objectID = cdataArrayPlanets[i]->objectID;
-    gui_circlefill(buffer,
-	       (xcoord-SPACE_MIN_XCOORD)/(SPACE_MAX_XCOORD-SPACE_MIN_XCOORD)*buffer->w ,
-	       (ycoord-SPACE_MIN_YCOORD)/(SPACE_MAX_YCOORD-SPACE_MIN_YCOORD)*buffer->h ,
-	       (P_GUI_DEFAULT_PLANET_SIZE)/(SPACE_MAX_XCOORD-SPACE_MIN_XCOORD)*buffer->w ,
-	       planet_col);
+    for (wrapX = -1; wrapX <= 1; wrapX++) {
+      for (wrapY = -1; wrapY <= 1; wrapY++) {
+	gui_circlefill(buffer,
+		       (xcoord-SPACE_MIN_XCOORD)/(SPACE_MAX_XCOORD-SPACE_MIN_XCOORD)*buffer->w + wrapX*buffer->w ,
+		       (ycoord-SPACE_MIN_YCOORD)/(SPACE_MAX_YCOORD-SPACE_MIN_YCOORD)*buffer->h + wrapY*buffer->h ,
+		       (P_GUI_DEFAULT_PLANET_SIZE)/(SPACE_MAX_XCOORD-SPACE_MIN_XCOORD)*buffer->w ,
+		       planet_col);
+      }
+    }
     if (cdataArrayPlanets[i]->volcano) {
       gui_putpixel(buffer,
 		   (xcoord-SPACE_MIN_XCOORD)/(SPACE_MAX_XCOORD-SPACE_MIN_XCOORD)*buffer->w ,
@@ -926,6 +940,7 @@ void gui_draw_radar(GuiArea *buffer)
     gui_vline(buffer, xcoord, ycoord - 1, ycoord + 1, orb_col);
   }
 
+  SDL_SetRenderClipRect(gui_renderer, NULL);
 }
 
 
