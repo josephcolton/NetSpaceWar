@@ -21,11 +21,11 @@ cmake -S . -B build -DNSW_BUILD_CLIENT=OFF   # server + AI only
 - `NetSpaceWar` (the game: menus + client) uses **SDL3**. CMake uses an installed SDL3 if found; otherwise it FetchContent-downloads the pinned release and links it statically (`NSW_FETCH_SDL`, default ON). On Linux, SDL's own configure step fails unless X11 or Wayland dev headers are installed (README lists them).
 - **Headless testing** (no display, no X11 headers): configure a separate tree with `-DSDL_UNIX_CONSOLE_BUILD=ON` (e.g. `build-headless/`) and run the client with `SDL_VIDEODRIVER=offscreen`. SIGTERM/window-close becomes `SDL_EVENT_QUIT`, which logs out cleanly.
 - `OS_<CMAKE_SYSTEM_NAME>` (e.g. `OS_Linux`) is defined for the `#ifdef` blocks in the clients.
-- **Windows**: `cmake/mingw-w64-x86_64.cmake` cross-compiles from Linux (needs `x86_64-w64-mingw32-*` on PATH, from distro `mingw-w64` or llvm-mingw). Builds are static, so the `.exe` files need only system DLLs.
+- **Windows**: `cmake/mingw-w64-x86_64.cmake` cross-compiles from Linux (needs `x86_64-w64-mingw32-*` on PATH, from distro `mingw-w64` or llvm-mingw). The same toolchain file also works natively with Strawberry (`build-windows/`); it falls back to plain `windres` because Strawberry has no prefixed one. Builds are static, so the `.exe` files need only system DLLs.
 - **Native Windows** (Strawberry Perl's MinGW gcc 13 + Ninja): `cmake -S . -B build-win -G Ninja -DCMAKE_C_COMPILER=gcc` with `C:\Strawberry\c\bin` first on PATH (ahead of `C:\msys64`). Verified working: server + bots, the game client, the launcher's host flow (spawns and kills server/bots), and window-close logout. The first time a host listens on 0.0.0.0, Windows Firewall asks about `SpaceWarServer.exe`.
 - **Windows installer**: see Releasing below.
 - Globals live in the `.c` files and are declared `extern` in the headers. Keep it that way: defining them in headers breaks the link under GCC ≥ 10 (`-fno-common`).
-- There are no tests or linters. To smoke-test, run `./SpaceWarServer localhost <port>` and two `./SpaceWarAI localhost <port> botN` from `build/`. The server prints joins, leaves, deaths and respawns; add `--verbose` to see every packet (roughly 20 player/missile updates per second per client). The bots print every packet because of `DEBUG`.
+- There are no tests or linters. To smoke-test, run `./SpaceWarServer localhost <port>` and two `./SpaceWarAI localhost <port> botN` from `build/`. The server prints joins, leaves, deaths and respawns; add `--verbose` to see every packet (roughly 20 player/missile updates per second per client). The bots and game print only status and errors; set `DEBUG` to 1 in `global.h` to have them print every packet.
 
 ## Releasing
 
@@ -75,11 +75,11 @@ Client keys: arrows turn/thrust, Space or Left Ctrl fires, Tab hyperjumps, Z/X m
 
 ## Roadmap
 
-- **Launcher follow-ups**: an orphaned server keeps running if the game process crashes; `DEBUG` is still compiled on, so the client prints every packet.
+- **Launcher follow-ups**: an orphaned server keeps running if the game process crashes.
 
 ## Notes
 
 - **Scores** live on the server's `dataNodeClients` (`score`, `kills`, `deaths`). Ships and missile owners share the client's objectID, so `scoreAdd()`/`scoreCountKill()`/`scoreCountDeath()` look the client up by that ID and set `scoreChanged`. Kills and hit points are awarded in the missile collision code; every death (any cause) and its `POINTS_DIE` penalty are applied in `deadShipDetect()`. `broadcastScoreboard()` runs every tick and sends `msg_scoreboard` (`wireScore` entries that include usernames) when `scoreChanged` is set, or every `SCOREBOARD_TICKS`. Clients keep the latest copy in `cdataScores`; `gui.c` draws your score in the HUD and the full table while S is held or your ship is dead.
 - `physicsUpdate()` must call `deadShipDetect()` last. If it runs first, ships sit at negative shields for a tick and a power transfer or shield restore can revive them.
 - Collision scoring in `physics.c` looks swapped: a kill awards `POINTS_HIT` and a non-fatal hit awards `POINTS_KILL`.
-- `DEBUG` is hard-coded to 1 in `global.h`, so the clients print every packet they receive. The server instead uses `VERBOSE` (`server.h`), set by `--verbose`; `--silent` turns off its stdout entirely, and errors go to stderr. Game events go through `serverLog()` (timestamped, skipped when silent). Death messages come from `reportDeath()` in `physics.c`, which looks up what `noteHit()` recorded for that ship during the same tick. The launcher starts its server with `--silent`.
+- `DEBUG` in `global.h` is 0. Set it to 1 to make the clients print every packet they receive and the GUI's per-frame traces. Keep new client debug prints behind `if (DEBUG)`. The server instead uses `VERBOSE` (`server.h`), set by `--verbose`; `--silent` turns off its stdout entirely, and errors go to stderr. Game events go through `serverLog()` (timestamped, skipped when silent). Death messages come from `reportDeath()` in `physics.c`, which looks up what `noteHit()` recorded for that ship during the same tick. The launcher starts its server with `--silent`.

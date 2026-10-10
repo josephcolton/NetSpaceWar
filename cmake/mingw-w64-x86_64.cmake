@@ -12,7 +12,8 @@ set(CMAKE_SYSTEM_PROCESSOR x86_64)
 set(TOOLCHAIN_PREFIX x86_64-w64-mingw32)
 set(CMAKE_C_COMPILER ${TOOLCHAIN_PREFIX}-gcc)
 set(CMAKE_CXX_COMPILER ${TOOLCHAIN_PREFIX}-g++)
-set(CMAKE_RC_COMPILER ${TOOLCHAIN_PREFIX}-windres)
+# Strawberry Perl's MinGW (native Windows) has the prefixed gcc but only a plain windres
+find_program(CMAKE_RC_COMPILER NAMES ${TOOLCHAIN_PREFIX}-windres windres)
 
 # Look for libraries and headers only in the target environment
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)

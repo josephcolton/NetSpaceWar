@@ -137,7 +137,7 @@ void gui_update_display() {
   // -- set player_x and player_y from the player's position
   clientShip = cdataLookupShips(clientObjectID);
   if (clientShip == NULL) {
-    printf("clientShip NULL!\n");
+    if (DEBUG) printf("clientShip NULL!\n");
     return;
   } else {
     player_x = clientShip->xcoord;
@@ -714,7 +714,7 @@ void gui_draw_radar(GuiArea *buffer)
   // Nothing to show until we have a ship
   clientShip = cdataLookupShips(clientObjectID);
   if (clientShip == NULL) {
-    printf("clientShip NULL!\n");
+    if (DEBUG) printf("clientShip NULL!\n");
     return;
   }
 
@@ -790,13 +790,13 @@ void gui_draw_stars(GuiArea *buffer, double mv_x, double mv_y) {
 
   // || mv_x > P_GUI_SHIP_RADIUS_PER_SCRH || mv_y > P_GUI_SHIP_RADIUS_PER_SCRH)
   if (initp == 0) {
-    printf("Initializing stars\n");
+    if (DEBUG) printf("Initializing stars\n");
     srand(time(0));
     initp=1;
     for (i=0;i<P_GUI_STAR_COUNT;++i) {
       stars[i][0]=(float)(rand()%buffer->w);
       stars[i][1]=(float)(rand()%buffer->h);
-      printf("Star %f, %f\n",stars[i][0],stars[i][1]);
+      if (DEBUG) printf("Star %f, %f\n",stars[i][0],stars[i][1]);
     }
     if (DEBUG) gui_line(buffer, 10, 0, 20, 10, gui_makecol(255,0,0));
   }

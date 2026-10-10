@@ -25,7 +25,7 @@
 #endif
 
 /* Testing Variables */
-#define DEBUG 1
+#define DEBUG 0
 
 /* Global variables for messages */
 #define CONNECT_TIMEOUT  5 // Seconds a client waits to log in
