@@ -19,6 +19,7 @@ int cdataCountOrbs;
 struct dataNodeAsteroids cdataAsteroids[MAX_COUNT_ASTEROIDS];
 int cdataCountAsteroids;
 double cdataPlanetChanged[MAX_COUNT_PLANETS];
+void (*clientSoundHook)(int sound, double xcoord, double ycoord);
 struct clientEvent cdataEvents[CLIENT_EVENTS];
 int cdataCountEvents;
 

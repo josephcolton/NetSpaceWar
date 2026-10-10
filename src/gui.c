@@ -5,6 +5,7 @@
 #include "global.h"
 #include "gui.h"
 #include "cdata.h"
+#include "audio.h"
 
 /*
  * A rectangular region of the window that drawing functions work in, so
@@ -373,6 +374,8 @@ int gui_get_input(double *angle_change, double *accel_amount, int *energy_to_shi
 	// Process window events; closing the window quits like ESC does
 	while (SDL_PollEvent(&event)) {
 		if (event.type == SDL_EVENT_QUIT) quit_requested=1;
+		// M turns all sound and music off and on
+		if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_M && !event.key.repeat) audioToggleMute();
 	}
 
 	// How long has it been since we were last called?
@@ -490,6 +493,7 @@ void gui_init_sdl()
 	SDL_SetRenderLogicalPresentation(gui_renderer, GUI_SCREEN_W, GUI_SCREEN_H, SDL_LOGICAL_PRESENTATION_LETTERBOX);
 	SDL_SetRenderVSync(gui_renderer, 1);
 	planetcolor=gui_makecol(140,140,100);
+	audioInit();
 }
 
 
@@ -1082,6 +1086,7 @@ static void gui_draw_score() {
   else snprintf(text, LEN, "Score %d", own ? own->score : 0);
   gui_text(8, 8, 2.0f, 0xffffff, text);
   gui_text(8, 30, 1.0f, 0x808080, "Hold S for scores and rules");
+  if (audioMuted()) gui_text(8, 44, 1.0f, 0x808080, "Sound off (M)");
 }
 
 #define GUI_EVENT_SHOW 6.0 // Seconds an event line stays on screen...

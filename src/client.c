@@ -156,6 +156,7 @@ void chandle_msg_staticobjs(int mysocket, void *packet, struct sockaddr_in serve
     if (planet == NULL) continue;
     // An asteroid woke or put out its volcano: animate the change
     if (planet->volcano != volcano) {
+      if (clientSoundHook) clientSoundHook(SOUND_ERUPT, planet->xcoord, planet->ycoord);
       for (j=0; j < cdataCountPlanets; j++) {
         if (cdataArrayPlanets[j] == planet) cdataPlanetChanged[j] = platformNow();
       }
@@ -209,6 +210,24 @@ void chandle_msg_clientinfo(int mysocket, void *packet, struct sockaddr_in serve
   cdataCreateShip(objectID, xcoord, ycoord);
 }
 
+// Sounds for what just happened to our own ship, from its last state (old)
+// and the new one: it jumped (or respawned), took a hit, or was recharged
+static void clientShipSounds(struct dataNodeShips *old, double xcoord, double ycoord, int status, int energy, int shields) {
+  double dx = fabs(xcoord - old->xcoord), dy = fabs(ycoord - old->ycoord);
+  if (dx > SPACE_MAX_XCOORD) dx = (SPACE_MAX_XCOORD - SPACE_MIN_XCOORD) - dx;
+  if (dy > SPACE_MAX_YCOORD) dy = (SPACE_MAX_YCOORD - SPACE_MIN_YCOORD) - dy;
+  if (status != 1) return;
+  if (dx * dx + dy * dy > 15 * 15) {
+    clientSoundHook(SOUND_JUMP, xcoord, ycoord);
+  } else if (old->status == 1 && shields < old->shields && energy <= old->energy) {
+    // Shields down without energy going up: damage, not a power transfer
+    clientSoundHook(SOUND_HIT, xcoord, ycoord);
+  } else if (energy == SHIP_MAX_ENERGY && shields == SHIP_MAX_SHIELDS &&
+             energy + shields >= old->energy + old->shields + 30) {
+    clientSoundHook(SOUND_ORB, xcoord, ycoord);
+  }
+}
+
 void chandle_msg_updateplayers(int mysocket, void *packet, struct sockaddr_in server_addr) {
   message_t mtype;
   int i;
@@ -256,6 +275,9 @@ void chandle_msg_updateplayers(int mysocket, void *packet, struct sockaddr_in se
     if (DEBUG) printf("  packet->ships[%d].yVelocity = %.2f\n", i, yVelocity);
     // See if the ship has been created first
     updateShip = cdataLookupShips(objectID);
+    if (updateShip != NULL && objectID == clientObjectID && clientSoundHook) {
+      clientShipSounds(updateShip, xcoord, ycoord, status, energy, shields);
+    }
     if (updateShip == NULL) {
       // Ship does not yet exist, create it.
       cdataCreateShip(objectID, xcoord, ycoord);
@@ -322,6 +344,7 @@ void chandle_msg_updatemissiles(int mysocket, void *packet, struct sockaddr_in s
     // Create the missile if the pointer is NULL
     if (updateMissile == NULL) {
       cdataCreateMissile(objectID, xcoord, ycoord, orientation, xVelocity, yVelocity);
+      if (clientSoundHook) clientSoundHook(SOUND_FIRE, xcoord, ycoord);
       if (DEBUG) printf("  missile information created\n");
       // Get a pointer for updates
       updateMissile = cdataLookupMissiles(objectID);
@@ -361,6 +384,7 @@ void chandle_msg_explosion(int mysocket, void *packet, struct sockaddr_in server
 
   // Create the explosion node
   status = cdataCreateExplosion(xcoord, ycoord);
+  if (clientSoundHook) clientSoundHook(SOUND_EXPLOSION, xcoord, ycoord);
   if (status == SW_FALSE) {
     if (DEBUG) printf("  ** Problem Creating Explosion\n");
   }
@@ -448,11 +472,24 @@ void chandle_msg_gameoptions(int mysocket, void *packet, struct sockaddr_in serv
 
 void chandle_msg_updateasteroids(int mysocket, void *packet, struct sockaddr_in server_addr) {
   int count = ((struct msg_updateasteroids *)packet)->obj_count;
+  int i, j;
 
   if (((struct msg_updateasteroids *)packet)->mtype != MSG_UPDATEASTEROIDS) return;
   // Never read past the receive buffer, whatever the packet claims
   if (count < 0) count = 0;
   if (count > MAX_COUNT_ASTEROIDS) count = MAX_COUNT_ASTEROIDS;
+  // An asteroid gone from the list broke up, unless it left out of sight
+  for (i=0; i < cdataCountAsteroids && clientSoundHook && clientShip; i++) {
+    struct dataNodeAsteroids *old = &cdataAsteroids[i];
+    double dx = fabs(old->xcoord - clientShip->xcoord), dy = fabs(old->ycoord - clientShip->ycoord);
+    for (j=0; j < count && ((struct msg_updateasteroids *)packet)->asteroids[j].objectID != old->objectID; j++);
+    if (j < count) continue;
+    if (dx > SPACE_MAX_XCOORD) dx = (SPACE_MAX_XCOORD - SPACE_MIN_XCOORD) - dx;
+    if (dy > SPACE_MAX_YCOORD) dy = (SPACE_MAX_YCOORD - SPACE_MIN_YCOORD) - dy;
+    if (dx < VIEW_HALF_W + ASTEROID_RADIUS && dy < VIEW_HALF_H + ASTEROID_RADIUS) {
+      clientSoundHook(SOUND_ROCK, old->xcoord, old->ycoord);
+    }
+  }
   memcpy(cdataAsteroids, ((struct msg_updateasteroids *)packet)->asteroids, sizeof(struct dataNodeAsteroids) * count);
   cdataCountAsteroids = count;
 }
@@ -467,11 +504,18 @@ void chandle_msg_event(int mysocket, void *packet, struct sockaddr_in server_add
 
 void chandle_msg_updateorbs(int mysocket, void *packet, struct sockaddr_in server_addr) {
   int count = ((struct msg_updateorbs *)packet)->obj_count;
+  int i, j;
 
   if (((struct msg_updateorbs *)packet)->mtype != MSG_UPDATEORBS) return;
   // Never read past the receive buffer, whatever the packet claims
   if (count < 0) count = 0;
   if (count > MAX_COUNT_ORBS) count = MAX_COUNT_ORBS;
+  // An orb we haven't seen just came out of a volcano
+  for (i=0; i < count && clientSoundHook; i++) {
+    struct dataNodeOrbs *orb = &((struct msg_updateorbs *)packet)->orbs[i];
+    for (j=0; j < cdataCountOrbs && cdataOrbs[j].objectID != orb->objectID; j++);
+    if (j == cdataCountOrbs) clientSoundHook(SOUND_ERUPT, orb->xcoord, orb->ycoord);
+  }
   memcpy(cdataOrbs, ((struct msg_updateorbs *)packet)->orbs, sizeof(struct dataNodeOrbs) * count);
   cdataCountOrbs = count;
 }

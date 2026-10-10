@@ -64,7 +64,7 @@ if(NSW_BUILD_CLIENT)
 
   if(TARGET SDL3::SDL3)
     add_executable(NetSpaceWar src/NetSpaceWar.c src/launcher.c src/game.c src/client.c src/cdata.c
-                   src/gui.c src/options.c src/platform.c)
+                   src/gui.c src/audio.c src/options.c src/platform.c)
     if(WIN32)
       # The icon (also used by SDL for the window) and version info
       configure_file(res/netspacewar.rc.in netspacewar.rc @ONLY)

@@ -60,6 +60,15 @@ extern struct dataNodeShips *cdataArrayShips[MAX_COUNT_SHIPS];
 extern struct dataNodeMissiles *cdataArrayMissiles[MAX_COUNT_MISSILES];
 extern struct dataNodePlanets *cdataArrayPlanets[MAX_COUNT_PLANETS];
 
+// Things worth a sound, noticed while reading the server's updates. The
+// game sets clientSoundHook to play them (audio.c); the AI leaves it NULL.
+// The position is in world units; sounds about our own ship use its position.
+enum {
+  SOUND_FIRE, SOUND_EXPLOSION, SOUND_HIT, SOUND_JUMP, SOUND_ORB, SOUND_ERUPT, SOUND_ROCK,
+  SOUND_MENU_MOVE, SOUND_MENU_SELECT, SOUND_COUNT
+};
+extern void (*clientSoundHook)(int sound, double xcoord, double ycoord);
+
 /* Client Functions */
 void cdataInitialize();
 

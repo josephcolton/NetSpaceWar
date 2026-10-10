@@ -108,6 +108,7 @@ The AI hunts the nearest ship, leads its shots, steers clear of planets, moves p
 | Z | Move energy to shields |
 | X | Move shields to energy |
 | S (hold) | Show the scoreboard and the game rules |
+| M | Turn sound and music off and on |
 | Escape | Leave the game |
 
 The window can be resized; the game scales to fit.
@@ -123,4 +124,5 @@ The window can be resized; the game scales to fit.
 - Ships appear well clear of planets, asteroids and other ships when they join, respawn or hyperjump.
 - With a match length set, the first player to reach the target score wins. Everyone sees the final rankings, and a new match starts 10 seconds later.
 - Who destroyed whom, and who joined or left, appears at the bottom of the screen.
+- Sound effects get quieter with distance and come from the side they happened on. **Options** on the main menu sets the sound and music volumes; they are saved and apply to every game you host or join.
 - Scoring: 10 points for a hit, 100 for a kill, and -100 for dying (scores never go below 0). Hitting yourself scores nothing. Hold S to see everyone's score, kills and deaths; the scoreboard also appears while you wait to respawn.

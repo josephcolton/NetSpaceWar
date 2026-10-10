@@ -4,6 +4,7 @@
 #include "game.h"
 #include "launcher.h"
 #include "options.h"
+#include "audio.h"
 
 #define LAUNCHER_DEFAULT_PORT "27960"
 #define LAUNCHER_MAX_BOTS     (MAX_COUNT_CLIENTS - 1) // Leave room for the host
@@ -35,14 +36,15 @@ typedef struct {
   char port[LAUNCHER_PORT_MAX];
   int bots;
   int options[OPTION_COUNT];  // Game rules passed to the server
+  int sound, music;           // This player's volumes, 0 to AUDIO_VOLUME_MAX
 } LauncherSettings;
 
-typedef enum { SCREEN_MAIN, SCREEN_HOST, SCREEN_JOIN, SCREEN_SETTINGS, SCREEN_ABOUT } LauncherScreen;
+typedef enum { SCREEN_MAIN, SCREEN_HOST, SCREEN_JOIN, SCREEN_SETTINGS, SCREEN_ABOUT, SCREEN_OPTIONS } LauncherScreen;
 typedef enum { ITEM_BUTTON, ITEM_TEXT, ITEM_CHOICE } LauncherItemKind;
 typedef enum {
   ACTION_NONE, ACTION_SHOW_HOST, ACTION_SHOW_JOIN, ACTION_QUIT,
   ACTION_START_HOST, ACTION_START_JOIN, ACTION_BACK,
-  ACTION_SHOW_SETTINGS, ACTION_RESET_SETTINGS, ACTION_SHOW_ABOUT
+  ACTION_SHOW_SETTINGS, ACTION_RESET_SETTINGS, ACTION_SHOW_ABOUT, ACTION_SHOW_OPTIONS
 } LauncherAction;
 
 /* One line of a menu: a button, a text field, or a number to pick */
@@ -99,6 +101,8 @@ static void launcherLoadSettings(LauncherSettings *settings) {
   launcherCopy(settings->host, LAUNCHER_HOST_MAX, "localhost");
   launcherCopy(settings->port, LAUNCHER_PORT_MAX, LAUNCHER_DEFAULT_PORT);
   settings->bots = 2;
+  settings->sound = 8;
+  settings->music = 5;
   gameOptionsReset(settings->options);
 
   path = launcherSettingsPath();
@@ -112,11 +116,15 @@ static void launcherLoadSettings(LauncherSettings *settings) {
     if (strcmp(line, "host") == 0 && value[0]) launcherCopy(settings->host, LAUNCHER_HOST_MAX, value);
     if (strcmp(line, "port") == 0 && value[0]) launcherCopy(settings->port, LAUNCHER_PORT_MAX, value);
     if (strcmp(line, "bots") == 0) settings->bots = atoi(value);
+    if (strcmp(line, "sound") == 0) settings->sound = atoi(value);
+    if (strcmp(line, "music") == 0) settings->music = atoi(value);
     if ((option = gameOptionFind(line)) >= 0) settings->options[option] = atoi(value);
   }
   fclose(file);
   if (settings->bots < 0) settings->bots = 0;
   if (settings->bots > LAUNCHER_MAX_BOTS) settings->bots = LAUNCHER_MAX_BOTS;
+  if (settings->sound < 0 || settings->sound > AUDIO_VOLUME_MAX) settings->sound = 8;
+  if (settings->music < 0 || settings->music > AUDIO_VOLUME_MAX) settings->music = 5;
   for (i=0; i < OPTION_COUNT; i++) settings->options[i] = gameOptionClamp(i, settings->options[i]);
   gameOptionsFix(settings->options);
 }
@@ -128,6 +136,7 @@ static void launcherSaveSettings(const LauncherSettings *settings) {
   if (path == NULL || (file = fopen(path, "w")) == NULL) return;
   fprintf(file, "name=%s\nhost=%s\nport=%s\nbots=%d\n",
           settings->name, settings->host, settings->port, settings->bots);
+  fprintf(file, "sound=%d\nmusic=%d\n", settings->sound, settings->music);
   for (i=0; i < OPTION_COUNT; i++) fprintf(file, "%s=%d\n", gameOptions[i].name, settings->options[i]);
   fclose(file);
 }
@@ -345,6 +354,7 @@ static void launcherBuildScreen(Launcher *l) {
   if (l->screen == SCREEN_MAIN) {
     launcherAddButton(l, "Host Game", ACTION_SHOW_HOST);
     launcherAddButton(l, "Join Game", ACTION_SHOW_JOIN);
+    launcherAddButton(l, "Options", ACTION_SHOW_OPTIONS);
     launcherAddButton(l, "About", ACTION_SHOW_ABOUT);
     launcherAddButton(l, "Quit", ACTION_QUIT);
   } else if (l->screen == SCREEN_HOST) {
@@ -359,6 +369,10 @@ static void launcherBuildScreen(Launcher *l) {
     launcherAddButton(l, "Reset to Defaults", ACTION_RESET_SETTINGS);
     launcherAddButton(l, "Back", ACTION_BACK);
   } else if (l->screen == SCREEN_ABOUT) {
+    launcherAddButton(l, "Back", ACTION_BACK);
+  } else if (l->screen == SCREEN_OPTIONS) {
+    launcherAddChoice(l, "Sound volume", &l->settings.sound, 0, AUDIO_VOLUME_MAX)->wrap = 0;
+    launcherAddChoice(l, "Music volume", &l->settings.music, 0, AUDIO_VOLUME_MAX)->wrap = 0;
     launcherAddButton(l, "Back", ACTION_BACK);
   } else {
     launcherAddText(l, "Your name", l->settings.name, USERNAME_MAX, 0);
@@ -412,6 +426,7 @@ static void launcherActivate(Launcher *l, LauncherAction action) {
   case ACTION_BACK:       launcherShowScreen(l, launcherParent(l)); break;
   case ACTION_SHOW_SETTINGS: launcherShowScreen(l, SCREEN_SETTINGS); break;
   case ACTION_SHOW_ABOUT: launcherShowScreen(l, SCREEN_ABOUT); break;
+  case ACTION_SHOW_OPTIONS: launcherShowScreen(l, SCREEN_OPTIONS); break;
   case ACTION_RESET_SETTINGS:
     gameOptionsReset(l->settings.options);
     launcherSaveSettings(&l->settings);
@@ -585,6 +600,7 @@ static void launcherDrawAbout() {
     {"Tab", "Hyperjump (and fly again after dying)"},
     {"Z / X", "Move energy into / out of shields"},
     {"S (hold)", "Scores and game rules"},
+    {"M", "Sound and music off / on"},
     {"Esc", "Leave the game"},
   };
   char text[LEN];
@@ -619,6 +635,10 @@ static void launcherDraw(Launcher *l) {
     gui_text_centered(36, 3.0f, COLOR_TITLE, "GAME SETTINGS");
   } else if (l->screen == SCREEN_ABOUT) {
     launcherDrawAbout();
+  } else if (l->screen == SCREEN_OPTIONS) {
+    gui_text_centered(70, 3.0f, COLOR_TITLE, "OPTIONS");
+    gui_text_centered(392, 1.0f, COLOR_DIM, "These are yours: they apply to every game you host or join.");
+    gui_text_centered(406, 1.0f, COLOR_DIM, "In a game, M turns all sound off and on.");
   } else {
     gui_text_centered(70, 3.0f, COLOR_TITLE, l->screen == SCREEN_HOST ? "HOST A GAME" : "JOIN A GAME");
   }
@@ -670,13 +690,26 @@ int launcherRun() {
   SDL_StartTextInput(gui_get_window());
   launcherShowScreen(&l, SCREEN_MAIN);
 
+  audioSetVolume(l.settings.sound, l.settings.music);
   while (l.running) {
+    // Calm music in the menus (a game switches it, so set it every pass)
+    audioMusic(MUSIC_MENU);
     while (l.running && SDL_PollEvent(&event)) {
+      LauncherScreen oldScreen = l.screen;
+      int oldFocus = l.focus;
+      int oldValue = (l.items[l.focus].kind == ITEM_CHOICE) ? *l.items[l.focus].value : 0;
+
       launcherHandleEvent(&l, &event);
       // Fewer planets than volcanoes takes the extra volcanoes away
       gameOptionsFix(l.settings.options);
       // An action may have switched screens
       launcherBuildScreen(&l);
+
+      // A blip for a new screen, a tick for moving or changing a value
+      audioSetVolume(l.settings.sound, l.settings.music);
+      if (l.screen != oldScreen) audioPlay(SOUND_MENU_SELECT);
+      else if (l.focus != oldFocus) audioPlay(SOUND_MENU_MOVE);
+      else if (l.items[l.focus].kind == ITEM_CHOICE && *l.items[l.focus].value != oldValue) audioPlay(SOUND_MENU_MOVE);
     }
     if (!l.running) break;
     launcherDraw(&l);

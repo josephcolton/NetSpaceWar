@@ -3,6 +3,24 @@
 #include "client.h"
 #include "gui.h"
 #include "game.h"
+#include "audio.h"
+
+// Play a sound the client noticed, placed relative to our ship
+static void gameSound(int sound, double xcoord, double ycoord) {
+  double span = SPACE_MAX_XCOORD - SPACE_MIN_XCOORD, dx, dy;
+  if (clientShip == NULL) {
+    audioPlay(sound);
+    return;
+  }
+  dx = xcoord - clientShip->xcoord;
+  dy = ycoord - clientShip->ycoord;
+  // The shortest way around the looping universe
+  if (dx > span / 2) dx -= span;
+  if (dx < -span / 2) dx += span;
+  if (dy > span / 2) dy -= span;
+  if (dy < -span / 2) dy += span;
+  audioPlayAt(sound, dx, dy);
+}
 
 // Send the player's input to the server
 static void gameSendInput(int mysocket, struct sockaddr_in server_addr,
@@ -54,6 +72,8 @@ int gamePlay(const char *hostname, int port, const char *username) {
 
   gui_init_sdl();
   SDL_StopTextInput(gui_get_window());
+  clientSoundHook = gameSound;
+  audioMusic(MUSIC_GAME);
   snprintf(connecting, LEN, "%s port %d", hostname, port);
   gui_draw_status("Connecting...", connecting);
 
@@ -111,6 +131,9 @@ int gamePlay(const char *hostname, int port, const char *username) {
 #endif
       gameSendInput(mysocket, server_addr, input_angle, input_accel, input_energy, input_flags);
     }
+    // The engine roars while thrusting, and power hums while moving between shields and energy
+    audioLoop(LOOP_THRUST, clientShip != NULL && clientShip->status == 1 && !cdataMatchOver && input_accel > 0);
+    audioLoop(LOOP_HUM, clientShip != NULL && clientShip->status == 1 && !cdataMatchOver && input_energy != 0);
 
     // Escape leaves the game; closing the window leaves and quits
     if (input_flags & (P_GUI_FLAG_QUIT | P_GUI_FLAG_CLOSE)) {
@@ -131,6 +154,9 @@ int gamePlay(const char *hostname, int port, const char *username) {
   if (result == GAME_LEFT && clientStatusMessage[0] != 0) result = GAME_FAILED;
 
   if (DEBUG) printf("Completed while(clientAlive) loop\n");
+  audioLoop(LOOP_THRUST, 0);
+  audioLoop(LOOP_HUM, 0);
+  clientSoundHook = NULL;
   netCloseSocket(mysocket);
   return result;
 }
