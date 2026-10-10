@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 NetSpaceWar: a multiplayer UDP network clone of Spacewar!, written in C. Git repo (GitHub `josephcolton/NetSpaceWar`). It was migrated from an old SVN checkout at `/opt/netspacewar-code` (SourceForge, revision 128), which is no longer edited. Sources are in `src/`, with `CMakeLists.txt` at the root.
 
+**Commit only to `main`.** Don't create branches; the owner wants all history on `main` for simplicity.
+
 ## Build
 
 ```sh
