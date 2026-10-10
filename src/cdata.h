@@ -65,6 +65,7 @@ extern struct dataNodePlanets *cdataArrayPlanets[MAX_COUNT_PLANETS];
 // The position is in world units; sounds about our own ship use its position.
 enum {
   SOUND_FIRE, SOUND_EXPLOSION, SOUND_HIT, SOUND_JUMP, SOUND_ORB, SOUND_ERUPT, SOUND_ROCK,
+  SOUND_VOLCANO_WAKE, SOUND_VOLCANO_DIE, // An asteroid strike gave a planet a volcano, or put one out
   SOUND_MENU_MOVE, SOUND_MENU_SELECT, SOUND_COUNT
 };
 extern void (*clientSoundHook)(int sound, double xcoord, double ycoord);

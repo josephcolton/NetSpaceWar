@@ -143,6 +143,47 @@ static void makeSounds() {
   }
   normalize(s, 0.55f);
 
+  // A volcano waking: a deep rumble swells, breaks through with a heavy
+  // whoomp, then lava bubbles and settles
+  s = &sounds[SOUND_VOLCANO_WAKE]; d = newSample(s, 2.2); y = y2 = 0; phase = 0;
+  for (i=0; i < s->length; i++) {
+    double swell, bubble = 0;
+    t = (double)i / AUDIO_RATE;
+    y += 0.02f * (randNoise() - y);
+    swell = (t < 0.6) ? t / 0.6 : exp(-(t - 0.6) * 1.6);
+    f = 35 + 30 * fmin(t / 0.6, 1);
+    phase += (float)(f / AUDIO_RATE);
+    d[i] = (float)((y * 5 + 0.5 * sin(2 * M_PI * phase)) * swell);
+    // The whoomp
+    if (t >= 0.6) {
+      y2 += 0.12f * (randNoise() - y2);
+      d[i] += (float)((y2 * 1.5 + 0.8 * sin(2 * M_PI * 70 * (t - 0.6))) * exp(-(t - 0.6) * 7));
+    }
+    // Bubbles: short low blips, fewer as it settles
+    for (k=0; k < 12; k++) {
+      double start = 0.75 + k * 0.11 + 0.04 * sin(k * 7.3), freq = 90 + 70 * fabs(sin(k * 3.1));
+      if (t > start && t < start + 0.09) bubble += sin(2 * M_PI * freq * (t - start) * (1 + 4 * (t - start))) * exp(-(t - start) * 40) * exp(-k * 0.15);
+    }
+    d[i] += (float)(0.6 * bubble);
+  }
+  normalize(s, 0.7f);
+
+  // A volcano dying out: the rumble sinks and fades under a long hiss of
+  // steam as the lava cools
+  s = &sounds[SOUND_VOLCANO_DIE]; d = newSample(s, 1.8); y = y2 = 0; phase = 0;
+  for (i=0; i < s->length; i++) {
+    float lowpass;
+    t = (double)i / AUDIO_RATE;
+    f = 75 * pow(0.4, t / 1.8);
+    phase += (float)(f / AUDIO_RATE);
+    y += 0.02f * (randNoise() - y);
+    d[i] = (float)((y * 4 + 0.6 * sin(2 * M_PI * phase)) * exp(-t * 2.2));
+    // Steam: noise with the low end taken out, rising in then fading
+    lowpass = y2 += 0.3f * (randNoise() - y2);
+    d[i] += (float)((randNoise() - lowpass) * 0.35 * fmin(t / 0.3, 1) * exp(-t * 1.6));
+  }
+  normalize(s, 0.6f);
+
   // Menu: a tick to move, a two-tone blip to choose
   s = &sounds[SOUND_MENU_MOVE]; d = newSample(s, 0.035);
   for (i=0; i < s->length; i++) {
@@ -310,7 +351,10 @@ void audioPlayAt(int sound, double dx, double dy) {
   Voice *voice;
   int v;
 
-  if (stream == NULL || sound < 0 || sound >= SOUND_COUNT || dist > AUDIO_HEARING) return;
+  if (stream == NULL || sound < 0 || sound >= SOUND_COUNT) return;
+  // A volcano waking or dying is heard across most of the map
+  if (sound == SOUND_VOLCANO_WAKE || sound == SOUND_VOLCANO_DIE) dist /= 2;
+  if (dist > AUDIO_HEARING) return;
   // Many explosions at once (a ship makes five) sound like one
   if (now - lastStart[sound] < (sound == SOUND_EXPLOSION ? 0.06 : 0.02)) return;
   lastStart[sound] = now;

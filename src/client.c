@@ -156,7 +156,7 @@ void chandle_msg_staticobjs(int mysocket, void *packet, struct sockaddr_in serve
     if (planet == NULL) continue;
     // An asteroid woke or put out its volcano: animate the change
     if (planet->volcano != volcano) {
-      if (clientSoundHook) clientSoundHook(SOUND_ERUPT, planet->xcoord, planet->ycoord);
+      if (clientSoundHook) clientSoundHook(volcano ? SOUND_VOLCANO_WAKE : SOUND_VOLCANO_DIE, planet->xcoord, planet->ycoord);
       for (j=0; j < cdataCountPlanets; j++) {
         if (cdataArrayPlanets[j] == planet) cdataPlanetChanged[j] = platformNow();
       }
