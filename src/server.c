@@ -1,12 +1,35 @@
+#include <stdarg.h>
 #include "global.h"
 #include "server.h"
 #include "sdata.h"
+
+int serverLogLevel = LOG_EVENTS;
+
+void serverLog(const char *format, ...) {
+  va_list args;
+  char stamp[16];
+  time_t now = time(NULL);
+
+  if (serverLogLevel < LOG_EVENTS) return;
+  strftime(stamp, sizeof(stamp), "%H:%M:%S", localtime(&now));
+  printf("[%s] ", stamp);
+  va_start(args, format);
+  vprintf(format, args);
+  va_end(args);
+  printf("\n");
+  fflush(stdout);
+}
+
+const char *serverClientName(object_t objectID) {
+  struct dataNodeClients *client = sdataLookupClient(objectID);
+  return client ? client->username : "A player who left";
+}
 
 // Initialize the server
 void serverInitialize() {
   double xcoord, ycoord;
   int i;
-  if (DEBUG) printf("Initializing Server\n");
+  if (VERBOSE) printf("Initializing Server\n");
 
   // Seed the randomizer
   srand(time(NULL));
@@ -30,7 +53,7 @@ void checkClientKeepAlive() {
 
   for(i=0; i < sdataCountClients; i++) {
     if (sdataArrayClients[i]->checkin + (KEEPALIVE_LIMIT * 3) < curTime) {
-      printf("Client checkin timeout\n");
+      serverLog("%s timed out", sdataArrayClients[i]->username);
       // Client has not reported in the last KEEPALIVE_LIMIT * 3 seconds
       // Tell the client to log out
       ssend_msg_logoutack(serverSocket, *(sdataArrayClients[i]->client_addr));
@@ -50,20 +73,20 @@ void shandle_msg_login(int mysocket, void *packet, struct sockaddr_in client_add
   char username[USERNAME_MAX];
   double xcoord, ycoord;
 
-  if (DEBUG) printf("Packet Received: shandle_msg_login\n");
+  if (VERBOSE) printf("Packet Received: shandle_msg_login\n");
 
   // Verify message type
   mtype = ((struct msg_login *)packet)->mtype;
   if (mtype != MSG_LOGIN) return;
-  if (DEBUG) printf("  packet->mtype = %d\n", mtype);
+  if (VERBOSE) printf("  packet->mtype = %d\n", mtype);
 
   // Get the other variables
   strncpy(username, ((struct msg_login *)packet)->username, USERNAME_MAX);
   username[USERNAME_MAX - 1] = 0; // The packet's copy may not be terminated
-  if (DEBUG) printf("  packet->username = '%s'\n", username);
+  if (VERBOSE) printf("  packet->username = '%s'\n", username);
 
   // Additional details
-  if (DEBUG) printf("  Processing:\n");
+  if (VERBOSE) printf("  Processing:\n");
 
   // Verify that the username does not exist
   objectID = sdataGetClientIDbyUsername(username);
@@ -79,16 +102,16 @@ void shandle_msg_login(int mysocket, void *packet, struct sockaddr_in client_add
   if (objectID > 0) {
     // The user already exists, send error reply with the objectID
     // of the client that matches
-    if (DEBUG) printf("    Client already exists\n");
+    if (VERBOSE) printf("    Client already exists\n");
     ssend_msg_loginack(mysocket, client_addr, STATUS_INUSE, objectID);
     return;
   } else {
-    if (DEBUG) printf("    Client does not yet exist.\n");
+    if (VERBOSE) printf("    Client does not yet exist.\n");
   }
 
   // Generate a objectID for the client
   objectID = sdataNewObjectID();
-  if (DEBUG) printf("    Assigning objectID = %d\n", objectID);
+  if (VERBOSE) printf("    Assigning objectID = %d\n", objectID);
 
   // Create the client node
   if (!sdataCreateClient(username, objectID, client_addr)) {
@@ -103,47 +126,49 @@ void shandle_msg_login(int mysocket, void *packet, struct sockaddr_in client_add
 
   // Notify the client of their objectID
   ssend_msg_loginack(mysocket, client_addr, STATUS_OKAY, objectID);
+  serverLog("%s joined from %s:%d", username, inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 }
 
 void shandle_msg_logout(int mysocket, void *packet, struct sockaddr_in client_addr) {
   message_t mtype;
   object_t objectID;
 
-  if (DEBUG) printf("Packet Received: shandle_msg_logout\n");
+  if (VERBOSE) printf("Packet Received: shandle_msg_logout\n");
 
   // Verify message type
   mtype = ((struct msg_logout *)packet)->mtype;
   if (mtype != MSG_LOGOUT) return;
 
   // Display packet contents
-  if (DEBUG) printf("  packet->mtype = %d\n", mtype);
+  if (VERBOSE) printf("  packet->mtype = %d\n", mtype);
 
   // Confirm logout with client
   ssend_msg_logoutack(serverSocket, client_addr);
 
   // Delete the client node
   objectID = sdataGetClientIDbyAddress(client_addr);
+  if (objectID > 0) serverLog("%s left", serverClientName(objectID));
   sdataDeleteClient(objectID);
 }
 
 void shandle_msg_keepalive(int mysocket, void *packet, struct sockaddr_in client_addr) {
   message_t mtype;
 
-  if (DEBUG) printf("Packet Received: shandle_msg_keepalive\n");
+  if (VERBOSE) printf("Packet Received: shandle_msg_keepalive\n");
 
   // Verify message type
   mtype = ((struct msg_keepalive *)packet)->mtype;
   if (mtype != MSG_KEEPALIVE) return;
 
   // Display packet contents
-  if (DEBUG) printf("  packet->mtype = %d\n", mtype);
+  if (VERBOSE) printf("  packet->mtype = %d\n", mtype);
 }
 
 void shandle_msg_request(int mysocket, void *packet, struct sockaddr_in client_addr) {
   message_t mtype;
   data_t dtype;
 
-  if (DEBUG) printf("Packet Received: shandle_msg_request\n");
+  if (VERBOSE) printf("Packet Received: shandle_msg_request\n");
 
   // Verify message type
   mtype = ((struct msg_request *)packet)->mtype;
@@ -153,8 +178,8 @@ void shandle_msg_request(int mysocket, void *packet, struct sockaddr_in client_a
   dtype = ((struct msg_request *)packet)->dtype;
 
   // Display packet contents
-  if (DEBUG) printf("  packet->mtype = %d\n", mtype);
-  if (DEBUG) printf("  packet->dtype = %d\n", dtype);
+  if (VERBOSE) printf("  packet->mtype = %d\n", mtype);
+  if (VERBOSE) printf("  packet->dtype = %d\n", dtype);
 
   // Reply to client request for data
   if (dtype == DATA_STATICOBJS) ssend_msg_staticobjs(mysocket, client_addr);
@@ -180,7 +205,7 @@ void shandle_msg_clientupdate(int mysocket, void *packet, struct sockaddr_in cli
   double yVelocity;
   double speed;
 
-  if (DEBUG) printf("Packet Received: shandle_msg_clientupdate\n");
+  if (VERBOSE) printf("Packet Received: shandle_msg_clientupdate\n");
 
   // Verify message type
   mtype = ((struct msg_clientupdate *)packet)->mtype;
@@ -198,11 +223,11 @@ void shandle_msg_clientupdate(int mysocket, void *packet, struct sockaddr_in cli
   var3 = ((struct msg_clientupdate *)packet)->var3;
 
   // Display packet contents
-  if (DEBUG) printf("  packet->mtype = %d\n", mtype);
-  if (DEBUG) printf("  packet->action = %d\n", action);
-  if (DEBUG) printf("  packet->var1 = %.2f\n", var1);
-  if (DEBUG) printf("  packet->var2 = %.2f\n", var2);
-  if (DEBUG) printf("  packet->var3 = %d\n", var3);
+  if (VERBOSE) printf("  packet->mtype = %d\n", mtype);
+  if (VERBOSE) printf("  packet->action = %d\n", action);
+  if (VERBOSE) printf("  packet->var1 = %.2f\n", var1);
+  if (VERBOSE) printf("  packet->var2 = %.2f\n", var2);
+  if (VERBOSE) printf("  packet->var3 = %d\n", var3);
 
   // Update ship status
   if (action == ACTION_THRUST) {
@@ -263,6 +288,7 @@ void shandle_msg_clientupdate(int mysocket, void *packet, struct sockaddr_in cli
       clientShip->energy = SHIP_MAX_ENERGY;
       clientShip->shields = SHIP_MAX_SHIELDS;
       // The penalty for dying was taken when the ship was destroyed
+      serverLog("%s respawned", serverClientName(objectID));
     }
 
   }
@@ -307,7 +333,7 @@ void ssend_msg_loginack(int mysocket, struct sockaddr_in client_addr, status_t s
   struct msg_loginack packet;
   // lastcontact = time(NULL);
 
-  if (DEBUG) printf("Packet Created: ssend_msg_loginack\n");
+  if (VERBOSE) printf("Packet Created: ssend_msg_loginack\n");
 
   // Construct the packet
   packet.mtype = MSG_LOGINACK;
@@ -324,7 +350,7 @@ void ssend_msg_loginack(int mysocket, struct sockaddr_in client_addr, status_t s
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_loginack: %d\n", netLastError());
+    fprintf(stderr, "Error: unable to send msg_loginack: %d\n", netLastError());
   }
 }
 
@@ -333,7 +359,7 @@ void ssend_msg_logoutack(int mysocket, struct sockaddr_in client_addr) {
   struct msg_logoutack packet;
   // lastcontact = time(NULL);
 
-  if (DEBUG) printf("Packet Created: ssend_msg_logoutack\n");
+  if (VERBOSE) printf("Packet Created: ssend_msg_logoutack\n");
 
   // Construct the packet
   packet.mtype = MSG_LOGOUTACK;
@@ -348,7 +374,7 @@ void ssend_msg_logoutack(int mysocket, struct sockaddr_in client_addr) {
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_logoutack: %d\n", netLastError());
+    fprintf(stderr, "Error: unable to send msg_logoutack: %d\n", netLastError());
   }
 }
 
@@ -358,7 +384,7 @@ void ssend_msg_staticobjs(int mysocket, struct sockaddr_in client_addr) {
   struct msg_staticobjs *packet = NULL;
   int packetSize = 0;
 
-  if (DEBUG) printf("Packet Created: ssend_msg_staticobjs\n");
+  if (VERBOSE) printf("Packet Created: ssend_msg_staticobjs\n");
 
   // Determine packet size and create packet
   packetSize = sizeof(struct msg_staticobjs);
@@ -368,15 +394,15 @@ void ssend_msg_staticobjs(int mysocket, struct sockaddr_in client_addr) {
   // Populate the packet
   packet->mtype = MSG_STATICOBJS;
   packet->obj_count = sdataCountPlanets;
-  if (DEBUG) printf("  packet->mtype = %d\n", packet->mtype);
-  if (DEBUG) printf("  packet->obj_count = %d\n", packet->obj_count);
+  if (VERBOSE) printf("  packet->mtype = %d\n", packet->mtype);
+  if (VERBOSE) printf("  packet->obj_count = %d\n", packet->obj_count);
   for(i=0; i < sdataCountPlanets; i++) {
     (packet->planets[i]).objectID = sdataArrayPlanets[i]->objectID;
     (packet->planets[i]).xcoord = sdataArrayPlanets[i]->xcoord;
     (packet->planets[i]).ycoord = sdataArrayPlanets[i]->ycoord;
-    if (DEBUG) printf("  packet->planet[%d].objectID = %d\n", i, (packet->planets[i]).objectID);
-    if (DEBUG) printf("  packet->planet[%d].xcoord = %.2f\n", i, (packet->planets[i]).xcoord);
-    if (DEBUG) printf("  packet->planet[%d].ycoord = %.2f\n", i, (packet->planets[i]).ycoord);
+    if (VERBOSE) printf("  packet->planet[%d].objectID = %d\n", i, (packet->planets[i]).objectID);
+    if (VERBOSE) printf("  packet->planet[%d].xcoord = %.2f\n", i, (packet->planets[i]).xcoord);
+    if (VERBOSE) printf("  packet->planet[%d].ycoord = %.2f\n", i, (packet->planets[i]).ycoord);
   }
  
   // Send the packet
@@ -389,7 +415,7 @@ void ssend_msg_staticobjs(int mysocket, struct sockaddr_in client_addr) {
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_staticobjs: %d\n", netLastError());
+    fprintf(stderr, "Error: unable to send msg_staticobjs: %d\n", netLastError());
   }
   free(packet);
 }
@@ -401,7 +427,7 @@ void ssend_msg_clientinfo(int mysocket, struct sockaddr_in client_addr) {
   struct msg_clientinfo packet;
   struct dataNodeShips *clientShip = NULL;
 
-  if (DEBUG) printf("Packet Created: ssend_msg_clientinfo\n");
+  if (VERBOSE) printf("Packet Created: ssend_msg_clientinfo\n");
 
   // Start packet population
   packet.mtype = MSG_CLIENTINFO;
@@ -425,16 +451,16 @@ void ssend_msg_clientinfo(int mysocket, struct sockaddr_in client_addr) {
   }
 
   // Display packet information
-  if (DEBUG) printf("  packet.mtype = %d\n", packet.mtype);
-  if (DEBUG) printf("  packet.objectID = %d\n", packet.objectID);
-  if (DEBUG) printf("  packet.xcoord = %.2f\n", packet.xcoord);
-  if (DEBUG) printf("  packet.ycoord = %.2f\n", packet.ycoord);
-  if (DEBUG) printf("  packet.status = %d\n", packet.status);
-  if (DEBUG) printf("  packet.energy = %d\n", packet.energy);
-  if (DEBUG) printf("  packet.shields = %d\n", packet.shields);
-  if (DEBUG) printf("  packet.orientation = %.2f\n", packet.orientation);
-  if (DEBUG) printf("  packet.xVelocity = %.2f\n", packet.xVelocity);
-  if (DEBUG) printf("  packet.yVelocity = %.2f\n", packet.yVelocity);
+  if (VERBOSE) printf("  packet.mtype = %d\n", packet.mtype);
+  if (VERBOSE) printf("  packet.objectID = %d\n", packet.objectID);
+  if (VERBOSE) printf("  packet.xcoord = %.2f\n", packet.xcoord);
+  if (VERBOSE) printf("  packet.ycoord = %.2f\n", packet.ycoord);
+  if (VERBOSE) printf("  packet.status = %d\n", packet.status);
+  if (VERBOSE) printf("  packet.energy = %d\n", packet.energy);
+  if (VERBOSE) printf("  packet.shields = %d\n", packet.shields);
+  if (VERBOSE) printf("  packet.orientation = %.2f\n", packet.orientation);
+  if (VERBOSE) printf("  packet.xVelocity = %.2f\n", packet.xVelocity);
+  if (VERBOSE) printf("  packet.yVelocity = %.2f\n", packet.yVelocity);
 
   // Send the packet
   bytes = sendto(mysocket,
@@ -446,7 +472,7 @@ void ssend_msg_clientinfo(int mysocket, struct sockaddr_in client_addr) {
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_clientinfo: %d\n", netLastError());
+    fprintf(stderr, "Error: unable to send msg_clientinfo: %d\n", netLastError());
   }
 }
 
@@ -456,7 +482,7 @@ void ssend_msg_updateplayers(int mysocket, struct sockaddr_in client_addr) {
   struct msg_updateplayers *packet = NULL;
   int packetSize = 0;
 
-  if (DEBUG) printf("Packet Created: ssend_msg_updateplayers\n");
+  if (VERBOSE) printf("Packet Created: ssend_msg_updateplayers\n");
 
   // Determine packet size and create packet
   packetSize = sizeof(struct msg_updateplayers);
@@ -465,9 +491,9 @@ void ssend_msg_updateplayers(int mysocket, struct sockaddr_in client_addr) {
 
   // Populate the packet
   packet->mtype = MSG_UPDATEPLAYERS;
-  if (DEBUG) printf("  packet->mtype = %d\n", packet->mtype);
+  if (VERBOSE) printf("  packet->mtype = %d\n", packet->mtype);
   packet->obj_count = sdataCountShips;
-  if (DEBUG) printf("  packet->obj_count = %d\n", packet->obj_count);
+  if (VERBOSE) printf("  packet->obj_count = %d\n", packet->obj_count);
 
   for(i=0; i < sdataCountShips; i++) {
     (packet->ships[i]).objectID = sdataArrayShips[i]->objectID;
@@ -480,15 +506,15 @@ void ssend_msg_updateplayers(int mysocket, struct sockaddr_in client_addr) {
     (packet->ships[i]).xVelocity = sdataArrayShips[i]->xVelocity;
     (packet->ships[i]).yVelocity = sdataArrayShips[i]->yVelocity;
     // Display ship contents
-    if (DEBUG) printf("  packet->ships[%d].objectID = %d\n", i, (packet->ships[i]).objectID);
-    if (DEBUG) printf("  packet->ships[%d].xcoord = %.2f\n", i, (packet->ships[i]).xcoord);
-    if (DEBUG) printf("  packet->ships[%d].ycoord = %.2f\n", i, (packet->ships[i]).ycoord);
-    if (DEBUG) printf("  packet->ships[%d].status = %d\n", i, (packet->ships[i]).status);
-    if (DEBUG) printf("  packet->ships[%d].energy = %d\n", i, (packet->ships[i]).energy);
-    if (DEBUG) printf("  packet->ships[%d].shields = %d\n", i, (packet->ships[i]).shields);
-    if (DEBUG) printf("  packet->ships[%d].orientation = %.2f\n", i, (packet->ships[i]).orientation);
-    if (DEBUG) printf("  packet->ships[%d].xVelocity = %.2f\n", i, (packet->ships[i]).xVelocity);
-    if (DEBUG) printf("  packet->ships[%d].yVelocity = %.2f\n", i, (packet->ships[i]).yVelocity);
+    if (VERBOSE) printf("  packet->ships[%d].objectID = %d\n", i, (packet->ships[i]).objectID);
+    if (VERBOSE) printf("  packet->ships[%d].xcoord = %.2f\n", i, (packet->ships[i]).xcoord);
+    if (VERBOSE) printf("  packet->ships[%d].ycoord = %.2f\n", i, (packet->ships[i]).ycoord);
+    if (VERBOSE) printf("  packet->ships[%d].status = %d\n", i, (packet->ships[i]).status);
+    if (VERBOSE) printf("  packet->ships[%d].energy = %d\n", i, (packet->ships[i]).energy);
+    if (VERBOSE) printf("  packet->ships[%d].shields = %d\n", i, (packet->ships[i]).shields);
+    if (VERBOSE) printf("  packet->ships[%d].orientation = %.2f\n", i, (packet->ships[i]).orientation);
+    if (VERBOSE) printf("  packet->ships[%d].xVelocity = %.2f\n", i, (packet->ships[i]).xVelocity);
+    if (VERBOSE) printf("  packet->ships[%d].yVelocity = %.2f\n", i, (packet->ships[i]).yVelocity);
   }
 
   // Send the packet
@@ -501,7 +527,7 @@ void ssend_msg_updateplayers(int mysocket, struct sockaddr_in client_addr) {
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_updateplayers: %d\n", netLastError());
+    fprintf(stderr, "Error: unable to send msg_updateplayers: %d\n", netLastError());
   }
 
 
@@ -515,7 +541,7 @@ void ssend_msg_updatemissiles(int mysocket, struct sockaddr_in client_addr) {
   struct msg_updatemissiles *packet = NULL;
   int packetSize = 0;
 
-  if (DEBUG) printf("Packet Created: ssend_msg_updatemissiles\n");
+  if (VERBOSE) printf("Packet Created: ssend_msg_updatemissiles\n");
 
   // Determine packet size and create packet
   packetSize = sizeof(struct msg_updatemissiles);
@@ -524,9 +550,9 @@ void ssend_msg_updatemissiles(int mysocket, struct sockaddr_in client_addr) {
 
   // Populate the packet
   packet->mtype = MSG_UPDATEMISSILES;
-  if (DEBUG) printf("  packet->mtype = %d\n", packet->mtype);
+  if (VERBOSE) printf("  packet->mtype = %d\n", packet->mtype);
   packet->obj_count = sdataCountMissiles;
-  if (DEBUG) printf("  packet->obj_count = %d\n", packet->obj_count);
+  if (VERBOSE) printf("  packet->obj_count = %d\n", packet->obj_count);
 
   for(i=0; i < sdataCountMissiles; i++) {
     (packet->missiles[i]).objectID = sdataArrayMissiles[i]->objectID;
@@ -536,12 +562,12 @@ void ssend_msg_updatemissiles(int mysocket, struct sockaddr_in client_addr) {
     (packet->missiles[i]).xVelocity = sdataArrayMissiles[i]->xVelocity;
     (packet->missiles[i]).yVelocity = sdataArrayMissiles[i]->yVelocity;
     // Display ship contents
-    if (DEBUG) printf("  packet->missiles[%d].objectID = %d\n", i, (packet->missiles[i]).objectID);
-    if (DEBUG) printf("  packet->missiles[%d].xcoord = %.2f\n", i, (packet->missiles[i]).xcoord);
-    if (DEBUG) printf("  packet->missiles[%d].ycoord = %.2f\n", i, (packet->missiles[i]).ycoord);
-    if (DEBUG) printf("  packet->missiles[%d].orientation = %.2f\n", i, (packet->missiles[i]).orientation);
-    if (DEBUG) printf("  packet->missiles[%d].xVelocity = %.2f\n", i, (packet->missiles[i]).xVelocity);
-    if (DEBUG) printf("  packet->missiles[%d].yVelocity = %.2f\n", i, (packet->missiles[i]).yVelocity);
+    if (VERBOSE) printf("  packet->missiles[%d].objectID = %d\n", i, (packet->missiles[i]).objectID);
+    if (VERBOSE) printf("  packet->missiles[%d].xcoord = %.2f\n", i, (packet->missiles[i]).xcoord);
+    if (VERBOSE) printf("  packet->missiles[%d].ycoord = %.2f\n", i, (packet->missiles[i]).ycoord);
+    if (VERBOSE) printf("  packet->missiles[%d].orientation = %.2f\n", i, (packet->missiles[i]).orientation);
+    if (VERBOSE) printf("  packet->missiles[%d].xVelocity = %.2f\n", i, (packet->missiles[i]).xVelocity);
+    if (VERBOSE) printf("  packet->missiles[%d].yVelocity = %.2f\n", i, (packet->missiles[i]).yVelocity);
   }
  
   // Send the packet
@@ -554,7 +580,7 @@ void ssend_msg_updatemissiles(int mysocket, struct sockaddr_in client_addr) {
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_updatemissiles: %d\n", netLastError());
+    fprintf(stderr, "Error: unable to send msg_updatemissiles: %d\n", netLastError());
   }
   free(packet);
 }
@@ -564,7 +590,7 @@ void ssend_msg_explosion(int mysocket, struct sockaddr_in client_addr, double xc
   struct msg_explosion packet;
   // lastcontact = time(NULL);
 
-  if (DEBUG) printf("Packet Created: ssend_msg_explosion\n");
+  if (VERBOSE) printf("Packet Created: ssend_msg_explosion\n");
 
   // Construct the packet
   packet.mtype = MSG_EXPLOSION;
@@ -581,7 +607,7 @@ void ssend_msg_explosion(int mysocket, struct sockaddr_in client_addr, double xc
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_explosion: %d\n", netLastError());
+    fprintf(stderr, "Error: unable to send msg_explosion: %d\n", netLastError());
   }
 }
 
@@ -591,7 +617,7 @@ void ssend_msg_clientlist(int mysocket, struct sockaddr_in client_addr) {
   struct msg_clientlist *packet = NULL;
   int packetSize = 0;
 
-  if (DEBUG) printf("Packet Created: ssend_msg_clientlist\n");
+  if (VERBOSE) printf("Packet Created: ssend_msg_clientlist\n");
 
   // Determine packet size and create packet
   packetSize = sizeof(struct msg_clientlist);
@@ -601,14 +627,14 @@ void ssend_msg_clientlist(int mysocket, struct sockaddr_in client_addr) {
   // Populate the packet
   packet->mtype = MSG_CLIENTLIST;
   packet->obj_count = sdataCountClients;
-  if (DEBUG) printf("  packet->mtype = %d\n", packet->mtype);
-  if (DEBUG) printf("  packet->obj_count = %d\n", packet->obj_count);
+  if (VERBOSE) printf("  packet->mtype = %d\n", packet->mtype);
+  if (VERBOSE) printf("  packet->obj_count = %d\n", packet->obj_count);
 
   for(i=0; i < sdataCountClients; i++) {
     strncpy((packet->clients[i]).username, sdataArrayClients[i]->username, USERNAME_MAX);
     (packet->clients[i]).objectID = sdataArrayClients[i]->objectID;
-    if (DEBUG) printf("  packet->clients[%d].username = '%s'\n", i, (packet->clients[i]).username);
-    if (DEBUG) printf("  packet->clients[%d].objectID = %d\n", i, (packet->clients[i]).objectID);
+    if (VERBOSE) printf("  packet->clients[%d].username = '%s'\n", i, (packet->clients[i]).username);
+    if (VERBOSE) printf("  packet->clients[%d].objectID = %d\n", i, (packet->clients[i]).objectID);
   }
  
   // Send the packet
@@ -621,7 +647,7 @@ void ssend_msg_clientlist(int mysocket, struct sockaddr_in client_addr) {
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_clientlist: %d\n", netLastError());
+    fprintf(stderr, "Error: unable to send msg_clientlist: %d\n", netLastError());
   }
   free(packet);
 }
@@ -632,7 +658,7 @@ void ssend_msg_scoreboard(int mysocket, struct sockaddr_in client_addr) {
   struct msg_scoreboard *packet = NULL;
   int packetSize = 0;
 
-  if (DEBUG) printf("Packet Created: ssend_msg_scoreboard\n");
+  if (VERBOSE) printf("Packet Created: ssend_msg_scoreboard\n");
 
   // Determine packet size and create packet
   packetSize = sizeof(struct msg_scoreboard);
@@ -660,7 +686,7 @@ void ssend_msg_scoreboard(int mysocket, struct sockaddr_in client_addr) {
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_scoreboard: %d\n", netLastError());
+    fprintf(stderr, "Error: unable to send msg_scoreboard: %d\n", netLastError());
   }
   free(packet);
 }
@@ -671,7 +697,7 @@ void ssend_msg_gameoptions(int mysocket, struct sockaddr_in client_addr) {
   struct msg_gameoptions *packet = NULL;
   int packetSize = 0;
 
-  if (DEBUG) printf("Packet Created: ssend_msg_gameoptions\n");
+  if (VERBOSE) printf("Packet Created: ssend_msg_gameoptions\n");
 
   // Determine packet size and create packet
   packetSize = sizeof(struct msg_gameoptions) + sizeof(int32_t) * OPTION_COUNT;
@@ -692,7 +718,7 @@ void ssend_msg_gameoptions(int mysocket, struct sockaddr_in client_addr) {
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_gameoptions: %d\n", netLastError());
+    fprintf(stderr, "Error: unable to send msg_gameoptions: %d\n", netLastError());
   }
   free(packet);
 }
@@ -701,7 +727,7 @@ void ssend_msg_deleteobj(int mysocket, struct sockaddr_in client_addr, data_t ob
   int bytes;
   struct msg_deleteobj packet;
   
-  if (DEBUG) printf("Packet Created: ssend_msg_deleteobj\n");
+  if (VERBOSE) printf("Packet Created: ssend_msg_deleteobj\n");
 
   // Construct the packet
   packet.mtype = MSG_DELETEOBJ;
@@ -718,7 +744,7 @@ void ssend_msg_deleteobj(int mysocket, struct sockaddr_in client_addr, data_t ob
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_deleteobj: %d\n", netLastError());
+    fprintf(stderr, "Error: unable to send msg_deleteobj: %d\n", netLastError());
   }
 }
 

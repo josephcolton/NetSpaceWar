@@ -10,7 +10,7 @@
 #define LAUNCHER_HOST_MAX     64
 #define LAUNCHER_PORT_MAX     6
 #define LAUNCHER_MAX_ITEMS    (OPTION_COUNT + 4)
-#define LAUNCHER_MAX_ARGS     (2 + 2 * OPTION_COUNT) // Server: address, port, --option value...
+#define LAUNCHER_MAX_ARGS     (3 + 2 * OPTION_COUNT) // Server: address, port, --silent, --option value...
 
 #ifdef _WIN32
 #define LAUNCHER_EXE_SUFFIX ".exe"
@@ -206,6 +206,7 @@ static void launcherHostGame(Launcher *l) {
   n = 0;
   args[n++] = "0.0.0.0";
   args[n++] = l->settings.port;
+  args[n++] = "--silent"; // Its output goes nowhere
   for (i=0; i < OPTION_COUNT; i++) {
     snprintf(flags[i], LEN, "--%s", gameOptions[i].name);
     snprintf(values[i], sizeof(values[i]), "%d", l->settings.options[i]);

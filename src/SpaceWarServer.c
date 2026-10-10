@@ -71,41 +71,53 @@ int main(int argc, char **argv) {
   // Keep track of time
   struct timeval timeout;
   int timeLeft = SERVER_TIMEOUT;
+  int i, n;
 
   // File Descriptors for the select command
   fd_set readfds; // file descriptor set
 
+  // --verbose and --silent can go anywhere after the port; the rest are game rules
+  for (i=3, n=3; i < argc; i++) {
+    if (strcmp(argv[i], "--verbose") == 0) serverLogLevel = LOG_VERBOSE;
+    else if (strcmp(argv[i], "--silent") == 0) serverLogLevel = LOG_SILENT;
+    else argv[n++] = argv[i];
+  }
+  if (argc > 3) argc = n;
+
   // Game rules: the defaults, then any --option value pairs after the port
   gameOptionsReset(serverOptions);
   if (argc < 3 || !gameOptionsParse(argc, argv, 3, serverOptions)) {
-    printf("Usage:\n\t%s address port [--option value ...]\n\nUse 0.0.0.0 as the address to accept players on every network interface.\n\n", argv[0]);
+    printf("Usage:\n\t%s address port [--verbose | --silent] [--option value ...]\n\n", argv[0]);
+    printf("Use 0.0.0.0 as the address to accept players on every network interface.\n");
+    printf("Normally the server reports joins, leaves, deaths and respawns. --verbose\n");
+    printf("also prints every packet; --silent prints nothing.\n\n");
     gameOptionsUsage();
     return argc < 3 ? 0 : 1;
   }
 
   // Start the socket library (needed on Windows before any network call)
   if (netInitialize() != 0) {
-    printf("Unable to initialize networking\n");
+    fprintf(stderr, "Unable to initialize networking\n");
     exit(1);
   }
 
   // Find the address to listen on; 0.0.0.0 listens on every interface
   if (netResolveHost(argv[1], &listen_addr) != 0) {
-    printf("Unable to look up %s\n", argv[1]);
+    fprintf(stderr, "Unable to look up %s\n", argv[1]);
     exit(1);
   }
-  if (DEBUG) printf("IP Address: %s\n", inet_ntoa(listen_addr));
+  if (VERBOSE) printf("IP Address: %s\n", inet_ntoa(listen_addr));
 
   // Get the server port number
   server_port = atoi(argv[2]);
-  if (DEBUG) printf("Server Port: %d\n", server_port);
+  if (VERBOSE) printf("Server Port: %d\n", server_port);
 
   // Initialize mysocket Socket
   // printf("mysocket: creating mysocket socket\n");
   serverSocket = socket (AF_INET, SOCK_DGRAM, 0);
   // mysocket socket id will be negative on error
   if (serverSocket < 0) {
-    printf("mysocket: socket creation failed: %d\n", netLastError());
+    fprintf(stderr, "mysocket: socket creation failed: %d\n", netLastError());
     exit(1);
   }
   netIgnoreConnReset(serverSocket);
@@ -125,7 +137,7 @@ int main(int argc, char **argv) {
   // Report if we have an error
   if (status < 0) {
     // Usually another program (or server) already has the port
-    printf("mysocket: bind failed: %d\n", netLastError());
+    fprintf(stderr, "mysocket: bind failed: %d\n", netLastError());
     exit(1);
   }
 
@@ -133,7 +145,11 @@ int main(int argc, char **argv) {
   serverInitialize();
 
   // infine listening loop
-  if (DEBUG) printf("Ready for Connections\n");
+  if (VERBOSE) printf("Ready for Connections\n");
+  serverLog("Listening on %s port %d", inet_ntoa(listen_addr), server_port);
+  for (i=0; i < OPTION_COUNT; i++) {
+    if (serverOptions[i] != gameOptions[i].defaultValue) serverLog("Rule: %s %d", gameOptions[i].label, serverOptions[i]);
+  }
 
   while(1) {
     fflush(stdout);
@@ -151,7 +167,7 @@ int main(int argc, char **argv) {
 
     // Select failure
     if (status < 0) {
-      printf("select failed: %d\n", netLastError());
+      fprintf(stderr, "select failed: %d\n", netLastError());
     }
 
     // Timeout

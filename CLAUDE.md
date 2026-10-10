@@ -22,7 +22,7 @@ cmake -S . -B build -DNSW_BUILD_CLIENT=OFF   # server + AI only
 - **Windows**: `cmake/mingw-w64-x86_64.cmake` cross-compiles from Linux (needs `x86_64-w64-mingw32-*` on PATH, from distro `mingw-w64` or llvm-mingw). Builds are static, so the `.exe` files need only system DLLs.
 - **Native Windows** (Strawberry Perl's MinGW gcc 13 + Ninja): `cmake -S . -B build-win -G Ninja -DCMAKE_C_COMPILER=gcc` with `C:\Strawberry\c\bin` first on PATH (ahead of `C:\msys64`). Verified working: server + bots, the game client, the launcher's host flow (spawns and kills server/bots), and window-close logout. The first time a host listens on 0.0.0.0, Windows Firewall asks about `SpaceWarServer.exe`.
 - Globals live in the `.c` files and are declared `extern` in the headers. Keep it that way: defining them in headers breaks the link under GCC ≥ 10 (`-fno-common`).
-- There are no tests or linters. To smoke-test, run `./SpaceWarServer localhost <port>` and two `./SpaceWarAI localhost <port> botN` from `build/`. With `DEBUG` on, the logs show logins and roughly 20 player/missile updates per second.
+- There are no tests or linters. To smoke-test, run `./SpaceWarServer localhost <port>` and two `./SpaceWarAI localhost <port> botN` from `build/`. The server prints joins, leaves, deaths and respawns; add `--verbose` to see every packet (roughly 20 player/missile updates per second per client). The bots print every packet because of `DEBUG`.
 
 ## Run
 
@@ -30,7 +30,7 @@ cmake -S . -B build -DNSW_BUILD_CLIENT=OFF   # server + AI only
 # from build/
 ./NetSpaceWar                                   # menu: host (spawns server + bots) or join
 ./NetSpaceWar    <hostname> <port> <username>   # join directly
-./SpaceWarServer <address> <port> [--planets N --gravity N ...]  # 0.0.0.0 = all interfaces; no args lists options
+./SpaceWarServer <address> <port> [--verbose|--silent] [--planets N --gravity N ...]  # 0.0.0.0 = all interfaces; no args lists options
 ./SpaceWarAI     <hostname> <port> <username>
 ```
 
@@ -61,4 +61,4 @@ Client keys: arrows turn/thrust, Space or Left Ctrl fires, Tab hyperjumps, Z/X m
 - **Scores** live on the server's `dataNodeClients` (`score`, `kills`, `deaths`). Ships and missile owners share the client's objectID, so `scoreAdd()`/`scoreCountKill()`/`scoreCountDeath()` look the client up by that ID and set `scoreChanged`. Kills and hit points are awarded in the missile collision code; every death (any cause) and its `POINTS_DIE` penalty are applied in `deadShipDetect()`. `broadcastScoreboard()` runs every tick and sends `msg_scoreboard` (`wireScore` entries that include usernames) when `scoreChanged` is set, or every `SCOREBOARD_TICKS`. Clients keep the latest copy in `cdataScores`; `gui.c` draws your score in the HUD and the full table while S is held or your ship is dead.
 - `physicsUpdate()` must call `deadShipDetect()` last. If it runs first, ships sit at negative shields for a tick and a power transfer or shield restore can revive them.
 - Collision scoring in `physics.c` looks swapped: a kill awards `POINTS_HIT` and a non-fatal hit awards `POINTS_KILL`.
-- `DEBUG` is hard-coded to 1 in `global.h`, so the server and clients print every packet they receive.
+- `DEBUG` is hard-coded to 1 in `global.h`, so the clients print every packet they receive. The server instead uses `VERBOSE` (`server.h`), set by `--verbose`; `--silent` turns off its stdout entirely, and errors go to stderr. Game events go through `serverLog()` (timestamped, skipped when silent). Death messages come from `reportDeath()` in `physics.c`, which looks up what `noteHit()` recorded for that ship during the same tick. The launcher starts its server with `--silent`.

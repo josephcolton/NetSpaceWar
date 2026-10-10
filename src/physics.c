@@ -6,6 +6,34 @@
 /* Global variable definitions (declared extern in physics.h) */
 int restoreCount;
 
+/* What last hit each ship this tick, so a death can say what caused it */
+#define HIT_PLANET  1
+#define HIT_SHIP    2
+#define HIT_MISSILE 3
+static struct { object_t ship; int cause; object_t by; } lastHits[MAX_COUNT_SHIPS];
+static int lastHitCount;
+
+static void noteHit(object_t ship, int cause, object_t by) {
+  int i;
+  for (i=0; i < lastHitCount && lastHits[i].ship != ship; i++);
+  if (i == MAX_COUNT_SHIPS) return;
+  if (i == lastHitCount) lastHitCount++;
+  lastHits[i].ship = ship;
+  lastHits[i].cause = cause;
+  lastHits[i].by = by;
+}
+
+static void reportDeath(object_t ship) {
+  int i;
+  const char *name = serverClientName(ship);
+  for (i=0; i < lastHitCount && lastHits[i].ship != ship; i++);
+  if (i == lastHitCount) serverLog("%s was destroyed", name);
+  else if (lastHits[i].cause == HIT_PLANET) serverLog("%s crashed into a planet", name);
+  else if (lastHits[i].cause == HIT_SHIP) serverLog("%s was destroyed colliding with %s", name, serverClientName(lastHits[i].by));
+  else if (lastHits[i].by == ship) serverLog("%s was destroyed by their own missile", name);
+  else serverLog("%s was destroyed by %s", name, serverClientName(lastHits[i].by));
+}
+
 void deadShipDetect() {
   int i;
   double xcoord, ycoord;
@@ -23,6 +51,7 @@ void deadShipDetect() {
       // missile already got credit for the kill
       scoreCountDeath(sdataArrayShips[i]->objectID);
       scoreAdd(sdataArrayShips[i]->objectID, POINTS_DIE);
+      reportDeath(sdataArrayShips[i]->objectID);
       // Get the ship location
       xcoord = sdataArrayShips[i]->xcoord;
       ycoord = sdataArrayShips[i]->ycoord;
@@ -168,6 +197,7 @@ void physicsUpdateCollisions() {
       if (inRange(x1, y1, x2, y2, range)) {
 	// Take a bit of damage
 	sdataArrayShips[i]->shields -= (SERVER_OPTION(CRASH_DMG) * 5);
+	noteHit(sdataArrayShips[i]->objectID, HIT_PLANET, 0);
 	if (sdataArrayShips[i]->shields>=0)
 	{
 	  // The ship is in range of the planet, so switch direction
@@ -202,6 +232,8 @@ void physicsUpdateCollisions() {
 	// Both take a bit of damage
 	sdataArrayShips[i]->shields -= SERVER_OPTION(CRASH_DMG);
 	sdataArrayShips[j]->shields -= SERVER_OPTION(CRASH_DMG);
+	noteHit(sdataArrayShips[i]->objectID, HIT_SHIP, sdataArrayShips[j]->objectID);
+	noteHit(sdataArrayShips[j]->objectID, HIT_SHIP, sdataArrayShips[i]->objectID);
 	// Trade directions
 	xTemp = sdataArrayShips[i]->xVelocity;
 	yTemp = sdataArrayShips[i]->yVelocity;
@@ -239,6 +271,7 @@ void physicsUpdateCollisions() {
       if (inRange(x1, y1, x2, y2, range)) {
 	// Take missile damage
 	sdataArrayShips[i]->shields -= SERVER_OPTION(MISSILE_DMG);
+	noteHit(sdataArrayShips[i]->objectID, HIT_MISSILE, sdataArrayMissiles[j]->owner);
 	// Missile owner gets points, but not for hitting themselves
 	if (sdataArrayMissiles[j]->owner != sdataArrayShips[i]->objectID) {
 	  if (sdataArrayShips[i]->shields < 0) {
@@ -368,6 +401,7 @@ void physicsUpdateGravity() {
 }
 
 void physicsUpdate() {
+  lastHitCount = 0; // Deaths are detected in the same tick as the hit
   shieldRestore();
   physicsUpdateGravity();
   physicsUpdatePositions();

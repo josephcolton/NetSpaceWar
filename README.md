@@ -59,11 +59,12 @@ The programs also run on their own, for example to keep a dedicated server runni
 ```sh
 ./SpaceWarServer 0.0.0.0 27960                 # listen on every network interface
 ./SpaceWarServer 0.0.0.0 27960 --planets 4 --gravity 150   # change the rules
+./SpaceWarServer 0.0.0.0 27960 --verbose      # also print every packet (--silent: print nothing)
 ./SpaceWarAI     <server> <port> <name>         # add a bot
 ./NetSpaceWar    <server> <port> <name>         # join directly, skipping the menu
 ```
 
-Run `SpaceWarServer` with no arguments to list every rule option with its range and default.
+The server reports when players join and leave, and every death and respawn. Run `SpaceWarServer` with no arguments to list every rule option with its range and default.
 
 The AI hunts the nearest ship, leads its shots, steers clear of planets, and moves power between shields and energy. It plays under the same turn, thrust and fire limits as a human.
 

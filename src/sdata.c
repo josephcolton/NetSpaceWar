@@ -99,7 +99,7 @@ void scoreCountDeath(object_t objectID) {
 // Client Information
 object_t sdataGetClientIDbyUsername(char *username) {
   int i;
-  if (DEBUG) printf("    sdataGetClientIDbyUsername('%s')\n", username);
+  if (VERBOSE) printf("    sdataGetClientIDbyUsername('%s')\n", username);
   for(i=0; i < sdataCountClients; i++) {
     if (strncmp(username, sdataArrayClients[i]->username, USERNAME_MAX) == 0) {
       // We have found the matching client
@@ -111,7 +111,7 @@ object_t sdataGetClientIDbyUsername(char *username) {
 
 object_t sdataGetClientIDbyAddress(struct sockaddr_in client_addr) {
   int i;
-  if (DEBUG) printf("    sdataGetClientIDbyAddress(ADDR)\n");
+  if (VERBOSE) printf("    sdataGetClientIDbyAddress(ADDR)\n");
   for(i=0; i < sdataCountClients; i++) {
     if (client_addr.sin_family == (sdataArrayClients[i]->client_addr)->sin_family &&
 	client_addr.sin_port == (sdataArrayClients[i]->client_addr)->sin_port &&
@@ -125,7 +125,7 @@ object_t sdataGetClientIDbyAddress(struct sockaddr_in client_addr) {
 
 int sdataCreateClient(char *username, object_t objectID, struct sockaddr_in client_addr) {
   // Log entry into function
-  if (DEBUG) printf("    sdataCreateClient('%s', %d, ADDR)\n", username, objectID);
+  if (VERBOSE) printf("    sdataCreateClient('%s', %d, ADDR)\n", username, objectID);
 
   // Returns SW_FALSE if there is no room in the array;
   if (sdataCountClients >= MAX_COUNT_CLIENTS) return SW_FALSE;
@@ -176,7 +176,7 @@ int sdataExistsClient(object_t objectID) {
 int sdataCreateExplosion(double xcoord, double ycoord) {
   int i;
   // Log entry into function
-  if (DEBUG) printf("    sdataCreateExplosion(%.2f, %.2f)\n", xcoord, ycoord);
+  if (VERBOSE) printf("    sdataCreateExplosion(%.2f, %.2f)\n", xcoord, ycoord);
 
   // Send the explosion to each client
   for (i=0; i < sdataCountClients; i++) {
@@ -189,7 +189,7 @@ int sdataCreateExplosion(double xcoord, double ycoord) {
 
 int sdataCreateShip(object_t objectID, double xcoord, double ycoord) {
   // Log entry into function
-  if (DEBUG) printf("    sdataCreateShip(%d, %.2f, %.2f)\n", objectID, xcoord, ycoord);
+  if (VERBOSE) printf("    sdataCreateShip(%d, %.2f, %.2f)\n", objectID, xcoord, ycoord);
 
   // Returns SW_FALSE if there is no room in the array;
   if (sdataCountShips >= MAX_COUNT_SHIPS) return SW_FALSE;
@@ -222,7 +222,7 @@ int sdataCreateShip(object_t objectID, double xcoord, double ycoord) {
 
 int sdataCreateMissile(object_t objectID, double xcoord, double ycoord, double orientation, double xVelocity, double yVelocity, object_t owner) {
   // Log entry into function
-  if (DEBUG) printf("    sdataCreateMissile(%d, %.2f, %.2f)\n", objectID, xcoord, ycoord);
+  if (VERBOSE) printf("    sdataCreateMissile(%d, %.2f, %.2f)\n", objectID, xcoord, ycoord);
 
   // Returns SW_FALSE if there is no room in the array;
   if (sdataCountMissiles >= MAX_COUNT_MISSILES) return SW_FALSE;
@@ -254,7 +254,7 @@ int sdataCreateMissile(object_t objectID, double xcoord, double ycoord, double o
 
 int sdataCreatePlanet(object_t objectID, double xcoord, double ycoord) {
   // Log entry into function
-  if (DEBUG) printf("    sdataCreatePlanet(%d, %.2f, %.2f)\n", objectID, xcoord, ycoord);
+  if (VERBOSE) printf("    sdataCreatePlanet(%d, %.2f, %.2f)\n", objectID, xcoord, ycoord);
 
   // Returns SW_FALSE if there is no room in the array;
   if (sdataCountPlanets >= MAX_COUNT_PLANETS) return SW_FALSE;
@@ -286,7 +286,7 @@ void sdataDeleteClient(object_t objectID) {
   struct dataNodeClients *delNode = NULL;
 
   // Log entry into function
-  if (DEBUG) printf("    sdataDeleteClient(%d)\n", objectID);
+  if (VERBOSE) printf("    sdataDeleteClient(%d)\n", objectID);
 
   // Delete the ship from clients
   sdataDeleteShip(objectID);

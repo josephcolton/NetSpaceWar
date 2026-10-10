@@ -3,6 +3,17 @@
 
 #include "global.h"
 
+/* Server output on stdout */
+#define LOG_SILENT  0 // Nothing (--silent)
+#define LOG_EVENTS  1 // Joins, leaves, deaths and respawns (the default)
+#define LOG_VERBOSE 2 // Every packet too (--verbose)
+extern int serverLogLevel;
+#define VERBOSE (serverLogLevel >= LOG_VERBOSE)
+// Report a game event, with the time, unless --silent
+void serverLog(const char *format, ...);
+// A client's username for messages; they may already have left
+const char *serverClientName(object_t objectID);
+
 /* Server Initialization, misc */
 void serverInitialize();
 void checkClientKeepAlive();
