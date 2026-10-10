@@ -35,7 +35,7 @@ Released so far:
 - `v1.0.0`: first release, with the installer and icon.
 - `v1.1.0` (tag on `8d9645b`): the version check and About screen, volcanoes and recharge orbs, asteroids, radar wrapping, and `DEBUG` off. It can't play with 1.0.0. 1.0.0 clients are refused without an explanation, because they predate the check.
 
-`project(VERSION)` on `main` is the last released version until the next bump. Bump it before releasing anything that changes the protocol or gameplay; patch versions (1.1.x) are for fixes.
+`main` may be ahead of the latest release: the owner pushes updates without releasing, and bumps `project(VERSION)` for them anyway, so `main` is currently 1.1.1 with no 1.1.1 release yet. Bump the minor version for protocol or gameplay changes and the patch version (1.1.x) for fixes. The version check compares the whole string, so even a patch bump stops players of different versions from playing together.
 
 1. Bump `project(VERSION ...)` in `CMakeLists.txt` and commit on `main`. Any version change makes players of the old version unable to join (see Version check).
 2. `cmake --workflow --preset windows-release` (`CMakePresets.json`, Strawberry's `C:\Strawberry\c\bin` first on PATH) configures, builds and runs CPack's `INNOSETUP` generator in `build-release/`, producing `build-release/NetSpaceWar-<version>-setup.exe`.
