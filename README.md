@@ -44,6 +44,18 @@ These builds link SDL3 and the C runtime statically, so each `.exe` runs on its 
 
 Building natively on Windows with MSVC should also work through CMake, but it hasn't been tried yet.
 
+### Windows installer
+
+The installer is built natively on Windows with MinGW gcc, Ninja and CMake 3.27 or later on `PATH` (for example from Strawberry Perl), plus [Inno Setup 6](https://jrsoftware.org/isdl.php). One command configures, builds and packages a release in `build-release/`:
+
+```sh
+cmake --workflow --preset windows-release
+```
+
+This produces `build-release/NetSpaceWar-<version>-setup.exe`. It installs the game into Program Files and adds a Start menu shortcut and an uninstaller. Players can also choose a desktop shortcut and a Windows Firewall rule for hosting games. The version number comes from `project()` in `CMakeLists.txt`. The installer isn't code-signed, so Windows SmartScreen asks players to click **More info → Run anyway**.
+
+The icon is drawn by `res/make_icon.py` (`python res/make_icon.py` rewrites `res/netspacewar.ico`).
+
 ## Playing
 
 Run `NetSpaceWar` (on Windows, double-click `NetSpaceWar.exe`).

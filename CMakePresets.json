@@ -1,0 +1,34 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 27, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "windows-release",
+      "displayName": "Windows release (MinGW gcc + Ninja)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "gcc"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "windows-release", "configurePreset": "windows-release" }
+  ],
+  "packagePresets": [
+    { "name": "windows-release", "configurePreset": "windows-release", "generators": [ "INNOSETUP" ] }
+  ],
+  "workflowPresets": [
+    {
+      "name": "windows-release",
+      "displayName": "Build the Windows installer",
+      "steps": [
+        { "type": "configure", "name": "windows-release" },
+        { "type": "build", "name": "windows-release" },
+        { "type": "package", "name": "windows-release" }
+      ]
+    }
+  ]
+}
