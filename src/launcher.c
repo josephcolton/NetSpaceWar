@@ -574,16 +574,23 @@ static void launcherHandleEvent(Launcher *l, SDL_Event *event) {
     gui_gamepad_event(event);
     break;
   case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
-    // The D-pad moves, A chooses, B goes back
-    switch (event->gbutton.button) {
-    case SDL_GAMEPAD_BUTTON_DPAD_UP:    launcherHandleKey(l, SDLK_UP, 0); break;
-    case SDL_GAMEPAD_BUTTON_DPAD_DOWN:  launcherHandleKey(l, SDLK_DOWN, 0); break;
-    case SDL_GAMEPAD_BUTTON_DPAD_LEFT:  launcherHandleKey(l, SDLK_LEFT, 0); break;
-    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: launcherHandleKey(l, SDLK_RIGHT, 0); break;
-    case SDL_GAMEPAD_BUTTON_SOUTH:
-    case SDL_GAMEPAD_BUTTON_START:      launcherHandleKey(l, SDLK_RETURN, 0); break;
-    case SDL_GAMEPAD_BUTTON_EAST:       launcherHandleKey(l, SDLK_ESCAPE, 0); break;
-    default: break;
+    // The D-pad moves, A (the fire button) or Start chooses, B goes back
+    i = event->gbutton.button;
+    if (i == SDL_GAMEPAD_BUTTON_DPAD_UP) launcherHandleKey(l, SDLK_UP, 0);
+    else if (i == SDL_GAMEPAD_BUTTON_DPAD_DOWN) launcherHandleKey(l, SDLK_DOWN, 0);
+    else if (i == SDL_GAMEPAD_BUTTON_DPAD_LEFT) launcherHandleKey(l, SDLK_LEFT, 0);
+    else if (i == SDL_GAMEPAD_BUTTON_DPAD_RIGHT) launcherHandleKey(l, SDLK_RIGHT, 0);
+    else if (i == (int)gui_pad_role(GUI_PAD_BACK)) launcherHandleKey(l, SDLK_ESCAPE, 0);
+    else if (i == (int)gui_pad_role(GUI_PAD_FIRE) || i == SDL_GAMEPAD_BUTTON_START) {
+      item = &l->items[l->focus];
+      if (item->kind == ITEM_TEXT) {
+        // On a text field (typed with the keyboard), go straight to the
+        // screen's main button: Start Game or Join Game
+        for (i=0; i < l->itemCount && l->items[i].kind != ITEM_BUTTON; i++);
+        if (i < l->itemCount) l->focus = i;
+      } else {
+        launcherHandleKey(l, SDLK_RETURN, 0);
+      }
     }
     break;
   case SDL_EVENT_GAMEPAD_AXIS_MOTION:
@@ -686,11 +693,12 @@ static void launcherDrawItem(Launcher *l, int index) {
 
 // Which gamepad is connected, and its controls (Options screen)
 static void launcherDrawGamepad() {
-  static const char *controls[][2] = {
+  // Named the way this controller labels them (A or Cross...)
+  const char *controls[][2] = {
     {"Left stick / D-pad", "Turn"},
     {"Right trigger", "Thrust"},
-    {"A", "Fire"},
-    {"Y", "Hyperjump"},
+    {gui_pad_role_name(GUI_PAD_FIRE), "Fire, choose in menus, fly again"},
+    {gui_pad_role_name(GUI_PAD_JUMP), "Hyperjump"},
     {"Left / right bumper", "Power to shields / weapons"},
     {"Back (hold)", "Scores"},
     {"Start", "Leave the game"},

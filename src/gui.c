@@ -73,6 +73,43 @@ static double gui_pad_axis(SDL_GamepadAxis axis) {
   return value > 1.0 ? 1.0 : value < -1.0 ? -1.0 : value;
 }
 
+// The face button for a job (GUI_PAD_FIRE...), found by the label printed on
+// it, since controllers put A, B, X and Y in different places (Xbox has A
+// at the bottom, Nintendo on the right). PlayStation's Cross, Circle and
+// Triangle count as A, B and Y. A controller with unknown labels gets the
+// Xbox positions.
+SDL_GamepadButton gui_pad_role(int role) {
+  static const SDL_GamepadButton faces[4] = {
+    SDL_GAMEPAD_BUTTON_SOUTH, SDL_GAMEPAD_BUTTON_EAST, SDL_GAMEPAD_BUTTON_WEST, SDL_GAMEPAD_BUTTON_NORTH
+  };
+  static const SDL_GamepadButtonLabel wanted[3][2] = {
+    {SDL_GAMEPAD_BUTTON_LABEL_A, SDL_GAMEPAD_BUTTON_LABEL_CROSS},
+    {SDL_GAMEPAD_BUTTON_LABEL_B, SDL_GAMEPAD_BUTTON_LABEL_CIRCLE},
+    {SDL_GAMEPAD_BUTTON_LABEL_Y, SDL_GAMEPAD_BUTTON_LABEL_TRIANGLE},
+  };
+  static const SDL_GamepadButton fallback[3] = {
+    SDL_GAMEPAD_BUTTON_SOUTH, SDL_GAMEPAD_BUTTON_EAST, SDL_GAMEPAD_BUTTON_NORTH
+  };
+  SDL_GamepadButtonLabel label;
+  int i;
+  if (gui_pad != NULL) {
+    for (i=0; i < 4; i++) {
+      label = SDL_GetGamepadButtonLabel(gui_pad, faces[i]);
+      if (label == wanted[role][0] || label == wanted[role][1]) return faces[i];
+    }
+  }
+  return fallback[role];
+}
+
+// What the button for a job is called on this controller ("A", "Cross"...)
+const char *gui_pad_role_name(int role) {
+  static const char *names[3][2] = {{"A", "Cross"}, {"B", "Circle"}, {"Y", "Triangle"}};
+  SDL_GamepadButtonLabel label = gui_pad ? SDL_GetGamepadButtonLabel(gui_pad, gui_pad_role(role)) : SDL_GAMEPAD_BUTTON_LABEL_UNKNOWN;
+  int playstation = (label == SDL_GAMEPAD_BUTTON_LABEL_CROSS || label == SDL_GAMEPAD_BUTTON_LABEL_CIRCLE ||
+                     label == SDL_GAMEPAD_BUTTON_LABEL_TRIANGLE);
+  return names[role][playstation];
+}
+
 SDL_Window *gui_window = NULL;
 SDL_Renderer *gui_renderer = NULL;
 GuiArea screen_area = {0, 0, GUI_SCREEN_W, GUI_SCREEN_H};
@@ -365,7 +402,13 @@ void gui_update_display() {
   // Show everyone's scores while S is held, and while waiting to respawn
   if (clientShip->status == 0) {
     gui_text_centered(80, 2.0f, 0xffffff, "Your ship was destroyed");
-    gui_text_centered(104, 1.0f, 0xc0c0c0, gui_pad ? "Press Tab or Y to fly again" : "Press Tab to fly again");
+    if (gui_pad) {
+      char again[LEN];
+      snprintf(again, LEN, "Press %s or %s to fly again", gui_pad_role_name(GUI_PAD_FIRE), gui_pad_role_name(GUI_PAD_JUMP));
+      gui_text_centered(104, 1.0f, 0xc0c0c0, again);
+    } else {
+      gui_text_centered(104, 1.0f, 0xc0c0c0, "Press Space or Tab to fly again");
+    }
   }
   if (clientShip->status == 0 || SDL_GetKeyboardState(NULL)[SDL_SCANCODE_S] || gui_pad_button(SDL_GAMEPAD_BUTTON_BACK)) {
     gui_draw_scoreboard();
@@ -450,11 +493,11 @@ int gui_get_input(double *angle_change, double *accel_amount, int *energy_to_shi
 	if (key[SDL_SCANCODE_UP] || gui_pad_button(SDL_GAMEPAD_BUTTON_DPAD_UP)) thrust = 1;
 	*accel_amount = thrust * seconds_diff * P_GUI_ACCEL_PER_SECOND;
 
-	if (key[SDL_SCANCODE_SPACE]||key[SDL_SCANCODE_LCTRL]||gui_pad_button(SDL_GAMEPAD_BUTTON_SOUTH)) // fire
+	if (key[SDL_SCANCODE_SPACE]||key[SDL_SCANCODE_LCTRL]||gui_pad_button(gui_pad_role(GUI_PAD_FIRE))) // fire
 	{
 		*flags|=P_GUI_FLAG_FIRE;
 	}
-	if (key[SDL_SCANCODE_TAB]||gui_pad_button(SDL_GAMEPAD_BUTTON_NORTH)) // hyper
+	if (key[SDL_SCANCODE_TAB]||gui_pad_button(gui_pad_role(GUI_PAD_JUMP))) // hyper
 	{
 		*flags|=P_GUI_FLAG_HYPER;
 	}

@@ -36,12 +36,13 @@ static void gameSendInput(int mysocket, struct sockaddr_in server_addr,
   }
 
   // See if the user fired a missile
-  if (input_flags & P_GUI_FLAG_FIRE) {
+  if ((input_flags & P_GUI_FLAG_FIRE) && clientShip->status == 1) {
     csend_msg_clientupdate(mysocket, server_addr, ACTION_FIRE, 0.0, 0.0, 0);
   }
 
-  // See if the user is hyper jumping
-  if (input_flags & P_GUI_FLAG_HYPER) {
+  // See if the user is hyper jumping; after being destroyed, fire flies
+  // again too
+  if ((input_flags & P_GUI_FLAG_HYPER) || ((input_flags & P_GUI_FLAG_FIRE) && clientShip->status == 0)) {
     csend_msg_clientupdate(mysocket, server_addr, ACTION_JUMP, 0.0, 0.0, 0);
   }
 }
