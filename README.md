@@ -3,6 +3,12 @@ Network based Space War: a multiplayer clone of Spacewar! Fly around a looping u
 
 ![A game in progress, with the scoreboard and game rules shown](docs/images/game.png)
 
+## Download
+
+**Windows:** download `NetSpaceWar-<version>-setup.exe` from the [latest release](https://github.com/josephcolton/NetSpaceWar/releases/latest) and run it. The installer isn't code-signed, so if Windows SmartScreen says "Windows protected your PC", click **More info**, then **Run anyway**.
+
+On Linux, build from source (below).
+
 ## Building
 
 NetSpaceWar uses CMake. From the repository root:
