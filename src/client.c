@@ -101,6 +101,9 @@ void chandle_msg_staticobjs(int mysocket, void *packet, struct sockaddr_in serve
   if (DEBUG) printf("  packet->mtype = %d\n", ((struct msg_staticobjs *)packet)->mtype);
   if (DEBUG) printf("  packet->obj_count = %d\n", ((struct msg_staticobjs *)packet)->obj_count);
   count = ((struct msg_staticobjs *)packet)->obj_count;
+  // Never read past the receive buffer, whatever the packet claims
+  if (count < 0) count = 0;
+  if (count > MAX_COUNT_PLANETS) count = MAX_COUNT_PLANETS;
 
   // Gather planets from packet.
   for(i=0; i < count; i++) {
@@ -180,6 +183,9 @@ void chandle_msg_updateplayers(int mysocket, void *packet, struct sockaddr_in se
   mtype = ((struct msg_updateplayers *)packet)->mtype;
   if (mtype != MSG_UPDATEPLAYERS) return;
   count = ((struct msg_updateplayers *)packet)->obj_count;
+  // Never read past the receive buffer, whatever the packet claims
+  if (count < 0) count = 0;
+  if (count > MAX_COUNT_SHIPS) count = MAX_COUNT_SHIPS;
 
   // Packet data
   if (DEBUG) printf("  packet->mtype = %d\n", mtype);
@@ -244,6 +250,9 @@ void chandle_msg_updatemissiles(int mysocket, void *packet, struct sockaddr_in s
   mtype = ((struct msg_updatemissiles *)packet)->mtype;
   if (mtype != MSG_UPDATEMISSILES) return;
   count = ((struct msg_updatemissiles *)packet)->obj_count;
+  // Never read past the receive buffer, whatever the packet claims
+  if (count < 0) count = 0;
+  if (count > MAX_COUNT_MISSILES) count = MAX_COUNT_MISSILES;
 
   // Packet data
   if (DEBUG) printf("  packet->mtype = %d\n", mtype);
@@ -329,11 +338,15 @@ void chandle_msg_clientlist(int mysocket, void *packet, struct sockaddr_in serve
   if (DEBUG) printf("  packet->mtype = %d\n", ((struct msg_clientlist *)packet)->mtype);
   if (DEBUG) printf("  packet->obj_count = %d\n", ((struct msg_clientlist *)packet)->obj_count);
   count = ((struct msg_clientlist *)packet)->obj_count;
+  // Never read past the receive buffer, whatever the packet claims
+  if (count < 0) count = 0;
+  if (count > MAX_COUNT_CLIENTS) count = MAX_COUNT_CLIENTS;
 
   // Gather clients from packet.
   for(i=0; i < count; i++) {
     objectID = ((struct msg_clientlist *)packet)->clients[i].objectID;
     strncpy(username, ((struct msg_clientlist *)packet)->clients[i].username, USERNAME_MAX);
+    username[USERNAME_MAX - 1] = 0; // The packet's copy may not be terminated
     if (DEBUG) printf("  packet->clients[%d].objectID = %d\n", i, objectID);
     if (DEBUG) printf("  packet->clients[%d].username = '%s'\n", i, username);
     // Create the client
@@ -403,7 +416,7 @@ void csend_msg_login(int mysocket, struct sockaddr_in server_addr, char *usernam
   // Send the packet
   clientCheckin = time(NULL);
   bytes = sendto(mysocket,
-		 &packet,
+		 (const char *)&packet,
 		 sizeof(packet),
 		 0,
 		 (struct sockaddr *)&server_addr,
@@ -411,7 +424,7 @@ void csend_msg_login(int mysocket, struct sockaddr_in server_addr, char *usernam
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_login: %d\n", errno);
+    printf("Error: unable to send msg_login: %d\n", netLastError());
   }
 }
 
@@ -431,7 +444,7 @@ void csend_msg_logout(int mysocket, struct sockaddr_in server_addr) {
   // Send the packet
   clientCheckin = time(NULL);
   bytes = sendto(mysocket,
-		 &packet,
+		 (const char *)&packet,
 		 sizeof(packet),
 		 0,
 		 (struct sockaddr *)&server_addr,
@@ -439,7 +452,7 @@ void csend_msg_logout(int mysocket, struct sockaddr_in server_addr) {
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_logout: %d\n", errno);
+    printf("Error: unable to send msg_logout: %d\n", netLastError());
   }
 }
 
@@ -459,7 +472,7 @@ void csend_msg_keepalive(int mysocket, struct sockaddr_in server_addr) {
   // Send the packet
   clientCheckin = time(NULL);
   bytes = sendto(mysocket,
-		 &packet,
+		 (const char *)&packet,
 		 sizeof(packet),
 		 0,
 		 (struct sockaddr *)&server_addr,
@@ -467,7 +480,7 @@ void csend_msg_keepalive(int mysocket, struct sockaddr_in server_addr) {
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_keepalive: %d\n", errno);
+    printf("Error: unable to send msg_keepalive: %d\n", netLastError());
   }
 }
 
@@ -489,7 +502,7 @@ void csend_msg_request(int mysocket, struct sockaddr_in server_addr, data_t dtyp
   // Send the packet
   clientCheckin = time(NULL);
   bytes = sendto(mysocket,
-		 &packet,
+		 (const char *)&packet,
 		 sizeof(packet),
 		 0,
 		 (struct sockaddr *)&server_addr,
@@ -497,7 +510,7 @@ void csend_msg_request(int mysocket, struct sockaddr_in server_addr, data_t dtyp
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_request: %d\n", errno);
+    printf("Error: unable to send msg_request: %d\n", netLastError());
   }
 }
 
@@ -525,7 +538,7 @@ void csend_msg_clientupdate(int mysocket, struct sockaddr_in server_addr, action
   // Send the packet
   clientCheckin = time(NULL);
   bytes = sendto(mysocket,
-		 &packet,
+		 (const char *)&packet,
 		 sizeof(packet),
 		 0,
 		 (struct sockaddr *)&server_addr,
@@ -533,7 +546,7 @@ void csend_msg_clientupdate(int mysocket, struct sockaddr_in server_addr, action
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_clientupdate: %d\n", errno);
+    printf("Error: unable to send msg_clientupdate: %d\n", netLastError());
   }
 }
 

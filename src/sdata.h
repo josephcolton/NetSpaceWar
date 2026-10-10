@@ -24,7 +24,7 @@ object_t sdataGetClientIDbyAddress(struct sockaddr_in client_addr);
 int sdataCreateClient(char *username, object_t objectID, struct sockaddr_in client_addr);
 
 // Keep track of system clock
-extern struct timeval lastTime;
+extern double lastTime;
 int lastTimeLeft(int usec);
 
 // We need an array for each type of data.

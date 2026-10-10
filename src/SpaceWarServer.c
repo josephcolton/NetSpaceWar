@@ -1,18 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <sys/un.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <strings.h>
-#include <errno.h>
-#include <sys/select.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
 
-/* My include files */
 #include "global.h"
 #include "server.h"
 #include "sdata.h"
@@ -28,10 +14,10 @@ void handle_socket(int mysocket) {
   struct dataNodeClients *clientNode = NULL;
 
   // Malloc the packet
-  packet = (void *)malloc(MTU);
+  packet = calloc(1, MAX_PACKET);
 
   // Erase the data in the client_addr just for fun
-  bzero((char *)&client_addr, sizeof(client_addr));
+  memset(&client_addr, 0, sizeof(client_addr));
 
   // Set the addrlen size, if not set, we get all kinds of strange addresses
   addrlen = sizeof(client_addr);
@@ -39,10 +25,16 @@ void handle_socket(int mysocket) {
   // Get the packet
   status = recvfrom(mysocket,
 		    packet,
-		    MTU,
+		    MAX_PACKET,
 		    0,
 		    (struct sockaddr *)&client_addr,
 		    &addrlen);
+
+  // Ignore failed reads and packets too short to have a message type
+  if (status < (int)sizeof(message_t)) {
+    free(packet);
+    return;
+  }
 
   // Now we should have the packet, identify it.
   mtype = ((struct msg_basic *)packet)->mtype;
@@ -93,9 +85,15 @@ int main(int argc, char **argv) {
 
   // Get the servername and ip address
   strcpy(server_name, argv[1]);
+  // Start the socket library (needed on Windows before any network call)
+  if (netInitialize() != 0) {
+    printf("Unable to initialize networking\n");
+    exit(1);
+  }
   lookup = gethostbyname(server_name);
   if (lookup == NULL) {
     printf("gethostbyname(%s) failed\n", server_name);
+    exit(1);
   } else {
     // printf("Server: %s\n", lookup->h_name);
     strcpy(server_ipaddr, inet_ntoa(*(struct in_addr*)lookup->h_addr));
@@ -111,14 +109,15 @@ int main(int argc, char **argv) {
   serverSocket = socket (AF_INET, SOCK_DGRAM, 0);
   // mysocket socket id will be negative on error
   if (serverSocket < 0) {
-    printf("mysocket: socket creation failed: %d", errno);
+    printf("mysocket: socket creation failed: %d", netLastError());
     exit(0);
   }
+  netIgnoreConnReset(serverSocket);
 
   // Bind to the local socket
   // printf("mysocket: binding mysocket\n");
   // Erase the data in mysocket_addr struct
-  bzero((char *) &mysocket_addr, sizeof(mysocket_addr));
+  memset(&mysocket_addr, 0, sizeof(mysocket_addr));
   // Initialize the data in mysocket_addr
   mysocket_addr.sin_family = AF_INET;
   mysocket_addr.sin_addr.s_addr = inet_addr(server_ipaddr);
@@ -129,7 +128,7 @@ int main(int argc, char **argv) {
                 sizeof(mysocket_addr));
   // Report if we have an error
   if (status < 0) {
-    printf("mysocket: bind failed: %d\n", errno);
+    printf("mysocket: bind failed: %d\n", netLastError());
     exit(0);
   }
 
@@ -155,13 +154,14 @@ int main(int argc, char **argv) {
 
     // Select failure
     if (status < 0) {
-      printf("select failed: %d\n", errno);
+      printf("select failed: %d\n", netLastError());
     }
 
     // Timeout
     if (status == 0) {
-      // Update timeout
+      // Start timing the next tick from now
       timeLeft = SERVER_TIMEOUT;
+      lastTime = platformNow();
 
       // Do the following everytime anything happens
       // Check client live status

@@ -60,6 +60,7 @@ void shandle_msg_login(int mysocket, void *packet, struct sockaddr_in client_add
 
   // Get the other variables
   strncpy(username, ((struct msg_login *)packet)->username, USERNAME_MAX);
+  username[USERNAME_MAX - 1] = 0; // The packet's copy may not be terminated
   if (DEBUG) printf("  packet->username = '%s'\n", username);
 
   // Additional details
@@ -308,7 +309,7 @@ void ssend_msg_loginack(int mysocket, struct sockaddr_in client_addr, status_t s
 
   // Send the packet
   bytes = sendto(mysocket,
-		 &packet,
+		 (const char *)&packet,
 		 sizeof(packet),
 		 0,
 		 (struct sockaddr *)&client_addr,
@@ -316,7 +317,7 @@ void ssend_msg_loginack(int mysocket, struct sockaddr_in client_addr, status_t s
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_loginack: %d\n", errno);
+    printf("Error: unable to send msg_loginack: %d\n", netLastError());
   }
 }
 
@@ -332,7 +333,7 @@ void ssend_msg_logoutack(int mysocket, struct sockaddr_in client_addr) {
 
   // Send the packet
   bytes = sendto(mysocket,
-		 &packet,
+		 (const char *)&packet,
 		 sizeof(packet),
 		 0,
 		 (struct sockaddr *)&client_addr,
@@ -340,7 +341,7 @@ void ssend_msg_logoutack(int mysocket, struct sockaddr_in client_addr) {
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_logoutack: %d\n", errno);
+    printf("Error: unable to send msg_logoutack: %d\n", netLastError());
   }
 }
 
@@ -373,7 +374,7 @@ void ssend_msg_staticobjs(int mysocket, struct sockaddr_in client_addr) {
  
   // Send the packet
   bytes = sendto(mysocket,
-		 packet,
+		 (const char *)packet,
 		 packetSize,
 		 0,
 		 (struct sockaddr *)&client_addr,
@@ -381,7 +382,7 @@ void ssend_msg_staticobjs(int mysocket, struct sockaddr_in client_addr) {
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_staticobjs: %d\n", errno);
+    printf("Error: unable to send msg_staticobjs: %d\n", netLastError());
   }
 }
 
@@ -429,7 +430,7 @@ void ssend_msg_clientinfo(int mysocket, struct sockaddr_in client_addr) {
 
   // Send the packet
   bytes = sendto(mysocket,
-		 &packet,
+		 (const char *)&packet,
 		 sizeof(packet),
 		 0,
 		 (struct sockaddr *)&client_addr,
@@ -437,7 +438,7 @@ void ssend_msg_clientinfo(int mysocket, struct sockaddr_in client_addr) {
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_clientinfo: %d\n", errno);
+    printf("Error: unable to send msg_clientinfo: %d\n", netLastError());
   }
 }
 
@@ -484,7 +485,7 @@ void ssend_msg_updateplayers(int mysocket, struct sockaddr_in client_addr) {
 
   // Send the packet
   bytes = sendto(mysocket,
-		 packet,
+		 (const char *)packet,
 		 packetSize,
 		 0,
 		 (struct sockaddr *)&client_addr,
@@ -492,7 +493,7 @@ void ssend_msg_updateplayers(int mysocket, struct sockaddr_in client_addr) {
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_updateplayers: %d\n", errno);
+    printf("Error: unable to send msg_updateplayers: %d\n", netLastError());
   }
 
 
@@ -536,7 +537,7 @@ void ssend_msg_updatemissiles(int mysocket, struct sockaddr_in client_addr) {
  
   // Send the packet
   bytes = sendto(mysocket,
-		 packet,
+		 (const char *)packet,
 		 packetSize,
 		 0,
 		 (struct sockaddr *)&client_addr,
@@ -544,7 +545,7 @@ void ssend_msg_updatemissiles(int mysocket, struct sockaddr_in client_addr) {
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_updatemissiles: %d\n", errno);
+    printf("Error: unable to send msg_updatemissiles: %d\n", netLastError());
   }
 }
 
@@ -562,7 +563,7 @@ void ssend_msg_explosion(int mysocket, struct sockaddr_in client_addr, double xc
 
   // Send the packet
   bytes = sendto(mysocket,
-		 &packet,
+		 (const char *)&packet,
 		 sizeof(packet),
 		 0,
 		 (struct sockaddr *)&client_addr,
@@ -570,7 +571,7 @@ void ssend_msg_explosion(int mysocket, struct sockaddr_in client_addr, double xc
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_explosion: %d\n", errno);
+    printf("Error: unable to send msg_explosion: %d\n", netLastError());
   }
 }
 
@@ -584,7 +585,7 @@ void ssend_msg_clientlist(int mysocket, struct sockaddr_in client_addr) {
 
   // Determine packet size and create packet
   packetSize = sizeof(struct msg_clientlist);
-  packetSize += sizeof(struct dataNodeClients) * sdataCountClients;
+  packetSize += sizeof(struct wireClient) * sdataCountClients;
   packet = (struct msg_clientlist *)malloc(packetSize);
 
   // Populate the packet
@@ -594,18 +595,15 @@ void ssend_msg_clientlist(int mysocket, struct sockaddr_in client_addr) {
   if (DEBUG) printf("  packet->obj_count = %d\n", packet->obj_count);
 
   for(i=0; i < sdataCountClients; i++) {
-    (packet->clients[i]).client_addr = NULL;
     strncpy((packet->clients[i]).username, sdataArrayClients[i]->username, USERNAME_MAX);
     (packet->clients[i]).objectID = sdataArrayClients[i]->objectID;
-    (packet->clients[i]).checkin = sdataArrayClients[i]->checkin;
     if (DEBUG) printf("  packet->clients[%d].username = '%s'\n", i, (packet->clients[i]).username);
     if (DEBUG) printf("  packet->clients[%d].objectID = %d\n", i, (packet->clients[i]).objectID);
-    if (DEBUG) printf("  packet->clients[%d].checkin = %ld\n", i, (long)(packet->clients[i]).checkin);
   }
  
   // Send the packet
   bytes = sendto(mysocket,
-		 packet,
+		 (const char *)packet,
 		 packetSize,
 		 0,
 		 (struct sockaddr *)&client_addr,
@@ -613,7 +611,7 @@ void ssend_msg_clientlist(int mysocket, struct sockaddr_in client_addr) {
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_clientlist: %d\n", errno);
+    printf("Error: unable to send msg_clientlist: %d\n", netLastError());
   }
 }
 
@@ -634,7 +632,7 @@ void ssend_msg_deleteobj(int mysocket, struct sockaddr_in client_addr, data_t ob
 
   // Send the packet
   bytes = sendto(mysocket,
-		 &packet,
+		 (const char *)&packet,
 		 sizeof(packet),
 		 0,
 		 (struct sockaddr *)&client_addr,
@@ -642,7 +640,7 @@ void ssend_msg_deleteobj(int mysocket, struct sockaddr_in client_addr, data_t ob
 
   // See if we got any errors
   if (bytes < 0) {
-    printf("Error: unable to send msg_deleteobj: %d\n", errno);
+    printf("Error: unable to send msg_deleteobj: %d\n", netLastError());
   }
 }
 

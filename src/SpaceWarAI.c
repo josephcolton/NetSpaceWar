@@ -1,17 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <sys/un.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <strings.h>
-#include <errno.h>
-#include <sys/select.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <ctype.h>
 
 #include "global.h"
 #include "cdata.h"
@@ -31,19 +17,25 @@ void handle_socket(int mysocket) {
   socklen_t addrlen;
 
   // Malloc the packet
-  packet = (void *)malloc(MTU);
+  packet = calloc(1, MAX_PACKET);
 
   // Erase the data in the server_addr just for fun
-  bzero((char *) &server_addr, sizeof(server_addr));
+  memset(&server_addr, 0, sizeof(server_addr));
   addrlen = sizeof(server_addr);
 
   // Receive the packet and sending address
   status = recvfrom(mysocket,
 		    packet,
-		    MTU,
+		    MAX_PACKET,
 		    0, 
 		    (struct sockaddr *)&server_addr,
 		    &addrlen);
+
+  // Ignore failed reads and packets too short to have a message type
+  if (status < (int)sizeof(message_t)) {
+    free(packet);
+    return;
+  }
 
   // Now we have the packet, we need to identify it.
   mtype = ((struct msg_basic *)packet)->mtype;
@@ -93,9 +85,15 @@ int main(int argc, char *argv[]) {
 
   // Get the servername and ip address
   strcpy(server_name, argv[1]);
+  // Start the socket library (needed on Windows before any network call)
+  if (netInitialize() != 0) {
+    printf("Unable to initialize networking\n");
+    exit(1);
+  }
   lookup = gethostbyname(server_name);
   if (lookup == NULL) {
     printf("gethostbyname(%s) failed\n", server_name);
+    exit(1);
   } else {
     strcpy(server_ipaddr, inet_ntoa(*(struct in_addr*)lookup->h_addr));
     printf("Server IP Address: %s\n", server_ipaddr);
@@ -105,25 +103,27 @@ int main(int argc, char *argv[]) {
   printf("Server Port: %d\n", server_port);
   // Get the username
   strncpy(clientUsername, argv[3], USERNAME_MAX);
+  clientUsername[USERNAME_MAX - 1] = 0;
 
   // Initialize Mysocket Socket
   // printf("mysocket: creating mysocket socket\n");
   mysocket = socket (AF_INET, SOCK_DGRAM, 0);
   // mysocket socket id will be negative on error
   if (mysocket < 0) {
-    printf("mysocket: socket creation failed: %d", errno);
+    printf("mysocket: socket creation failed: %d", netLastError());
     exit(0);
   }
+  netIgnoreConnReset(mysocket);
 
   // Bind to the local socket
   // printf("mysocket: binding mysocket\n");
   // Erase the data in mysocket_addr struct
-  bzero((char *) &mysocket_addr, sizeof(mysocket_addr));
+  memset(&mysocket_addr, 0, sizeof(mysocket_addr));
 
   // Connect to the server
   // printf("mysocket: creating server_addr struct\n");
   // Erase the data in the server_addr struct
-  bzero((char *) &server_addr, sizeof(server_addr));
+  memset(&server_addr, 0, sizeof(server_addr));
   // Set the server variables
   server_addr.sin_family = AF_INET;
   server_addr.sin_addr.s_addr = inet_addr(server_ipaddr);
@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
     cdataUpdateAll();
 
     if (status < 0) {
-      printf("select failed: %d\n", errno);
+      printf("select failed: %d\n", netLastError());
       continue;
     }
 

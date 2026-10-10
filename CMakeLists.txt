@@ -15,13 +15,21 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
   add_compile_options(-Wall)
 endif()
 
+if(MSVC)
+  # M_PI, and quiet warnings about the classic C and socket calls this code uses
+  add_compile_definitions(_USE_MATH_DEFINES _CRT_SECURE_NO_WARNINGS _WINSOCK_DEPRECATED_NO_WARNINGS)
+endif()
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
 find_library(MATH_LIB m)
 
 # Server: no external dependencies
-add_executable(SpaceWarServer src/SpaceWarServer.c src/server.c src/sdata.c src/physics.c)
+add_executable(SpaceWarServer src/SpaceWarServer.c src/server.c src/sdata.c src/physics.c src/platform.c)
 
 # AI client: headless, no external dependencies
-add_executable(SpaceWarAI src/SpaceWarAI.c src/ai.c src/client.c src/cdata.c)
+add_executable(SpaceWarAI src/SpaceWarAI.c src/ai.c src/client.c src/cdata.c src/platform.c)
 
 # Human client: SDL3. Uses an installed SDL3 if there is one, otherwise
 # downloads it and links it statically so players need nothing installed.
@@ -39,7 +47,7 @@ if(NSW_BUILD_CLIENT)
   endif()
 
   if(TARGET SDL3::SDL3)
-    add_executable(SpaceWarClient src/SpaceWarClient.c src/client.c src/cdata.c src/gui.c)
+    add_executable(SpaceWarClient src/SpaceWarClient.c src/client.c src/cdata.c src/gui.c src/platform.c)
     target_link_libraries(SpaceWarClient PRIVATE SDL3::SDL3)
   else()
     message(WARNING "SDL3 not found and NSW_FETCH_SDL is OFF: skipping SpaceWarClient")
@@ -47,7 +55,12 @@ if(NSW_BUILD_CLIENT)
 endif()
 
 foreach(target SpaceWarServer SpaceWarAI SpaceWarClient)
-  if(TARGET ${target} AND MATH_LIB)
-    target_link_libraries(${target} PRIVATE ${MATH_LIB})
+  if(TARGET ${target})
+    if(MATH_LIB)
+      target_link_libraries(${target} PRIVATE ${MATH_LIB})
+    endif()
+    if(WIN32)
+      target_link_libraries(${target} PRIVATE ws2_32)
+    endif()
   endif()
 endforeach()

@@ -13,9 +13,7 @@ static double aiLastJump = 0.0;
 
 // Wall clock time in seconds
 static double aiNow() {
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-  return tv.tv_sec + tv.tv_usec / 1000000.0;
+  return platformNow();
 }
 
 // Shortest signed distance from a to b along one axis of the looping universe

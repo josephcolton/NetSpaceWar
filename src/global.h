@@ -3,23 +3,26 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <sys/un.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <strings.h>
+#include <stdint.h>
 #include <errno.h>
-#include <sys/select.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include <ctype.h>
 #include <math.h>
 #include <string.h>
 #include <time.h>
 
+#include "platform.h"
+
+/*
+ * Wire format: every message is a struct below, sent as raw bytes. To keep
+ * the layout identical across compilers and platforms, the structs are
+ * byte-packed and use fixed-width types (doubles are IEEE 754 everywhere we
+ * build). Byte order is the sender's; all supported platforms are little-endian.
+ */
+#if defined(__GNUC__) || defined(__clang__)
 #define packed __attribute__((packed))
+#else
+#define packed
+#endif
 
 /* Testing Variables */
 #define DEBUG 1
@@ -29,6 +32,7 @@
 #define SW_FALSE         0
 #define SW_TRUE          1
 #define MTU              1500
+#define MAX_PACKET       65536 // Receive buffer size; a full missile list is larger than MTU
 #define USERNAME_MAX     20
 #define LEN              100
 #define SPACE_MIN_XCOORD -100.0
@@ -159,11 +163,19 @@ typedef unsigned short data_t;
 typedef unsigned short action_t;
 
 /* Data Structs */
+#pragma pack(push, 1)
 struct dataNodeClients {
   struct sockaddr_in *client_addr;
   char username[USERNAME_MAX];
   object_t objectID;
   time_t checkin;
+} packed;
+
+// One entry of msg_clientlist. dataNodeClients holds a pointer and a
+// time_t, so it cannot go on the wire directly.
+struct wireClient {
+  object_t objectID;
+  char username[USERNAME_MAX];
 } packed;
 
 struct dataNodeExplosions {
@@ -177,9 +189,9 @@ struct dataNodeShips {
   object_t objectID;
   double xcoord;
   double ycoord;
-  int status; // 1 for live, 0 for dead
-  int energy;
-  int shields;
+  int32_t status; // 1 for live, 0 for dead
+  int32_t energy;
+  int32_t shields;
   double orientation;
   double xVelocity;
   double yVelocity;
@@ -193,7 +205,7 @@ struct dataNodeMissiles {
   double xVelocity;
   double yVelocity;
   object_t owner;
-  time_t ttl;
+  int64_t ttl; // time() when the missile expires
 } packed;
 
 struct dataNodePlanets {
@@ -223,8 +235,8 @@ struct msg_logoutack {
 // Report static objects to client
 struct msg_staticobjs {
   message_t mtype; /* = MSG_STATICOBJS */
-  int obj_count;
-  struct dataNodePlanets planets[0]; // Will be larger then 0.
+  int32_t obj_count;
+  struct dataNodePlanets planets[]; // obj_count entries
 } packed;
 
 // Report a clients information
@@ -233,9 +245,9 @@ struct msg_clientinfo {
   object_t objectID;
   double xcoord;
   double ycoord;
-  int status;
-  int energy;
-  int shields;
+  int32_t status;
+  int32_t energy;
+  int32_t shields;
   double orientation;
   double xVelocity;
   double yVelocity;
@@ -244,15 +256,15 @@ struct msg_clientinfo {
 // Update player positions
 struct msg_updateplayers {
   message_t mtype; /* = MSG_UPDATEPLAYERS */
-  int obj_count;
-  struct dataNodeShips ships[0]; // Will be larger then 0.
+  int32_t obj_count;
+  struct dataNodeShips ships[]; // obj_count entries
 } packed;
 
 // Update object positions
 struct msg_updatemissiles {
   message_t mtype; /* = MSG_UPDATEMISSILES */
-  int obj_count;
-  struct dataNodeMissiles missiles[0]; // Will be larger then 0.
+  int32_t obj_count;
+  struct dataNodeMissiles missiles[]; // obj_count entries
 } packed;
 
 // Report explosion location to client
@@ -265,8 +277,8 @@ struct msg_explosion {
 // Report a list of clients in objectID/username pairs
 struct msg_clientlist {
   message_t mtype; /* = MSG_CLIENTLIST */
-  int obj_count;
-  struct dataNodeClients clients[0]; // Will be larger then 0.
+  int32_t obj_count;
+  struct wireClient clients[]; // obj_count entries
 } packed;
 
 // Report scoreboard in objectID/score pairs
@@ -309,7 +321,19 @@ struct msg_clientupdate {
   action_t action;
   double var1;
   double var2;
-  int var3;
+  int32_t var3;
 } packed;
+
+#pragma pack(pop)
+
+/* Catch any change to the wire layout at compile time */
+_Static_assert(sizeof(struct wireClient) == 22, "wireClient wire size");
+_Static_assert(sizeof(struct dataNodeShips) == 54, "dataNodeShips wire size");
+_Static_assert(sizeof(struct dataNodeMissiles) == 52, "dataNodeMissiles wire size");
+_Static_assert(sizeof(struct dataNodePlanets) == 18, "dataNodePlanets wire size");
+_Static_assert(sizeof(struct msg_clientinfo) == 56, "msg_clientinfo wire size");
+_Static_assert(sizeof(struct msg_updateplayers) == 6, "msg_updateplayers wire size");
+_Static_assert(sizeof(struct msg_clientupdate) == 24, "msg_clientupdate wire size");
+_Static_assert(sizeof(struct msg_login) == 22, "msg_login wire size");
 
 #endif

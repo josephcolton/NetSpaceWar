@@ -27,7 +27,18 @@ sudo apt install build-essential cmake libx11-dev libxext-dev libxrandr-dev libx
 
 To build only the server and AI, configure with `-DNSW_BUILD_CLIENT=OFF`.
 
-Windows support is in progress: the networking code still uses Unix sockets.
+### Windows
+
+The Windows programs are built with MinGW-w64, cross-compiled from Linux (`sudo apt install mingw-w64`, or [llvm-mingw](https://github.com/mstorsjo/llvm-mingw)):
+
+```sh
+cmake -S . -B build-windows -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-x86_64.cmake
+cmake --build build-windows
+```
+
+These builds link SDL3 and the C runtime statically, so each `.exe` runs on its own on Windows 10 and later. The network protocol is the same on every platform, so Linux and Windows players can join the same game.
+
+Building natively on Windows with MSVC should also work through CMake, but it hasn't been tried yet.
 
 ## Playing
 

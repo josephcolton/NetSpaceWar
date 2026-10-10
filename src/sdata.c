@@ -10,7 +10,7 @@ int sdataCountExplosions;
 int sdataCountShips;
 int sdataCountMissiles;
 int sdataCountPlanets;
-struct timeval lastTime;
+double lastTime;
 struct dataNodeClients *sdataArrayClients[MAX_COUNT_CLIENTS];
 struct dataNodeExplosions *sdataArrayExplosions[MAX_COUNT_EXPLOSIONS];
 struct dataNodeShips *sdataArrayShips[MAX_COUNT_SHIPS];
@@ -37,7 +37,7 @@ void sdataInitialize() {
 
   // Global variables
   sdataNextObjectID = 1;
-  gettimeofday(&lastTime, NULL);
+  lastTime = platformNow();
 
   // Initialize all of the arrays
   for (i=0; i < MAX_COUNT_CLIENTS; i++) sdataArrayClients[i] = NULL;
@@ -57,22 +57,13 @@ void sdataInitialize() {
 }
 
 int lastTimeLeft(int usec) {
-  struct timeval curtime;
-  int timePassed = 0;
+  // Returns how much of the usec microsecond wait remains, after taking
+  // off the time passed since the previous call.
+  double now = platformNow();
+  int timePassed = (int)((now - lastTime) * 1000000.0);
+  lastTime = now;
 
-  // Get the current time
-  gettimeofday(&curtime, NULL);
-
-  // Figure out how much time has passed since the last call
-  if (curtime.tv_sec != lastTime.tv_sec) {
-    timePassed += (curtime.tv_sec - lastTime.tv_sec) * 1000000;
-  }
-  timePassed += (curtime.tv_sec - lastTime.tv_sec);
-
-  // Update the lastTime
-  gettimeofday(&lastTime, NULL);
-  
-  if (timePassed > usec) return 0;
+  if (timePassed >= usec) return 0;
   return usec - timePassed;
 }
 

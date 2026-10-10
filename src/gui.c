@@ -681,13 +681,8 @@ void gui_draw_radar(GuiArea *buffer)
 {
   double xcoord = 0.0;
   double ycoord = 0.0;
-  double orientation = 0.0;
   object_t objectID = 0;
   struct dataNodeShips *clientShip = NULL;
-  double player_x = 0.0;
-  double player_y = 0.0;
-  static double player_oldx = 0.0;
-  static double player_oldy = 0.0;
   int player_col  =   gui_makecol(0,255,0);
   int other_col   =   gui_makecol(255,60,60);
   int missile_col =   gui_makecol(255,255,0);
@@ -695,7 +690,7 @@ void gui_draw_radar(GuiArea *buffer)
   
   int i;
 
-  if (DEBUG) printf("gui_update_display()\n");
+  if (DEBUG) printf("gui_draw_radar()\n");
 
   // make sure SDL has been initialized.
   if (initalized_sdl==0) {
@@ -707,14 +702,11 @@ void gui_draw_radar(GuiArea *buffer)
   gui_clear(buffer);
 
 
-  // -- set player_x and player_y from the player's position
+  // Nothing to show until we have a ship
   clientShip = cdataLookupShips(clientObjectID);
   if (clientShip == NULL) {
     printf("clientShip NULL!\n");
     return;
-  } else {
-    player_x = clientShip->xcoord;
-    player_y = clientShip->ycoord;
   }
 
   // Draw Planets
@@ -738,7 +730,6 @@ void gui_draw_radar(GuiArea *buffer)
     xcoord = cdataArrayShips[i]->xcoord;
     ycoord = cdataArrayShips[i]->ycoord;
     objectID = cdataArrayShips[i]->objectID;
-    orientation = cdataArrayShips[i]->orientation;
 
     if (objectID == clientObjectID) {
 
@@ -762,7 +753,6 @@ void gui_draw_radar(GuiArea *buffer)
     if (cdataArrayMissiles[i] == NULL) continue;
     xcoord = cdataArrayMissiles[i]->xcoord;
     ycoord = cdataArrayMissiles[i]->ycoord;
-    orientation = cdataArrayMissiles[i]->orientation;
 
     gui_putpixel(buffer,
 	       (xcoord-SPACE_MIN_XCOORD)/(SPACE_MAX_XCOORD-SPACE_MIN_XCOORD)*buffer->w ,
@@ -781,7 +771,7 @@ void gui_draw_radar(GuiArea *buffer)
  * The stars will be moved as though the _player_ had moved by mv_x and mv_y.
  */
 void gui_draw_stars(GuiArea *buffer, double mv_x, double mv_y) {
-  static int initp=0, rand_counter;
+  static int initp=0;
   static float stars[P_GUI_STAR_COUNT][2];
   int i;
 
