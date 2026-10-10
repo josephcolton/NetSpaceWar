@@ -521,6 +521,36 @@ static void launcherHandleEvent(Launcher *l, SDL_Event *event) {
     item = &l->items[l->focus];
     if (item->kind == ITEM_TEXT) launcherTypeText(item, event->text.text);
     break;
+  case SDL_EVENT_GAMEPAD_ADDED:
+  case SDL_EVENT_GAMEPAD_REMOVED:
+    gui_gamepad_event(event);
+    break;
+  case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+    // The D-pad moves, A chooses, B goes back
+    switch (event->gbutton.button) {
+    case SDL_GAMEPAD_BUTTON_DPAD_UP:    launcherHandleKey(l, SDLK_UP, 0); break;
+    case SDL_GAMEPAD_BUTTON_DPAD_DOWN:  launcherHandleKey(l, SDLK_DOWN, 0); break;
+    case SDL_GAMEPAD_BUTTON_DPAD_LEFT:  launcherHandleKey(l, SDLK_LEFT, 0); break;
+    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: launcherHandleKey(l, SDLK_RIGHT, 0); break;
+    case SDL_GAMEPAD_BUTTON_SOUTH:
+    case SDL_GAMEPAD_BUTTON_START:      launcherHandleKey(l, SDLK_RETURN, 0); break;
+    case SDL_GAMEPAD_BUTTON_EAST:       launcherHandleKey(l, SDLK_ESCAPE, 0); break;
+    default: break;
+    }
+    break;
+  case SDL_EVENT_GAMEPAD_AXIS_MOTION:
+    // The left stick moves one step each time it is pushed past halfway
+    if (event->gaxis.axis == SDL_GAMEPAD_AXIS_LEFTX || event->gaxis.axis == SDL_GAMEPAD_AXIS_LEFTY) {
+      static int pushed[2];
+      int which = (event->gaxis.axis == SDL_GAMEPAD_AXIS_LEFTY);
+      int dir = event->gaxis.value > 16000 ? 1 : event->gaxis.value < -16000 ? -1 : 0;
+      if (dir != 0 && dir != pushed[which]) {
+        if (which) launcherHandleKey(l, dir > 0 ? SDLK_DOWN : SDLK_UP, 0);
+        else launcherHandleKey(l, dir > 0 ? SDLK_RIGHT : SDLK_LEFT, 0);
+      }
+      pushed[which] = dir;
+    }
+    break;
   case SDL_EVENT_MOUSE_WHEEL:
     l->scroll -= event->wheel.y * 30;
     break;
@@ -591,6 +621,30 @@ static void launcherDrawItem(Launcher *l, int index) {
   }
 }
 
+// Which gamepad is connected, and its controls (Options screen)
+static void launcherDrawGamepad() {
+  static const char *controls[][2] = {
+    {"Left stick / D-pad", "Turn"},
+    {"Right trigger", "Thrust"},
+    {"A", "Fire"},
+    {"Y", "Hyperjump"},
+    {"Left / right bumper", "Power to shields / weapons"},
+    {"Back (hold)", "Scores"},
+    {"Start", "Leave the game"},
+  };
+  const char *name = gui_gamepad_name();
+  char text[LEN];
+  int i;
+
+  snprintf(text, LEN, name ? "Gamepad: %.60s" : "No gamepad connected", name);
+  gui_text_centered(270, 1.0f, name ? COLOR_TEXT : COLOR_DIM, text);
+  for (i=0; i < (int)(sizeof(controls) / sizeof(controls[0])); i++) {
+    float y = 288 + i * 14;
+    gui_text(300 - gui_text_width(1.0f, controls[i][0]), y, 1.0f, name ? COLOR_FOCUS : COLOR_DIM, controls[i][0]);
+    gui_text(316, y, 1.0f, name ? COLOR_TEXT : COLOR_DIM, controls[i][1]);
+  }
+}
+
 // The game's version, where it comes from, and the controls
 static void launcherDrawAbout() {
   static const char *controls[][2] = {
@@ -637,8 +691,9 @@ static void launcherDraw(Launcher *l) {
     launcherDrawAbout();
   } else if (l->screen == SCREEN_OPTIONS) {
     gui_text_centered(70, 3.0f, COLOR_TITLE, "OPTIONS");
-    gui_text_centered(392, 1.0f, COLOR_DIM, "These are yours: they apply to every game you host or join.");
-    gui_text_centered(406, 1.0f, COLOR_DIM, "In a game, M turns all sound off and on.");
+    launcherDrawGamepad();
+    gui_text_centered(406, 1.0f, COLOR_DIM, "These are yours: they apply to every game you host or join.");
+    gui_text_centered(420, 1.0f, COLOR_DIM, "In a game, M turns all sound off and on.");
   } else {
     gui_text_centered(70, 3.0f, COLOR_TITLE, l->screen == SCREEN_HOST ? "HOST A GAME" : "JOIN A GAME");
   }

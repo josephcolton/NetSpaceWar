@@ -36,6 +36,43 @@ static void gui_draw_rankings();
 // The score that wins at each Match length (0 = Endless)
 static const int gui_match_scores[MATCH_LENGTHS] = MATCH_SCORES;
 
+/* Gamepad: the first one connected is used, whenever it is plugged in */
+static SDL_Gamepad *gui_pad = NULL;
+
+void gui_gamepad_event(SDL_Event *event) {
+  SDL_JoystickID *pads;
+  int count;
+  if (event->type == SDL_EVENT_GAMEPAD_ADDED && gui_pad == NULL) {
+    gui_pad = SDL_OpenGamepad(event->gdevice.which);
+  }
+  if (event->type == SDL_EVENT_GAMEPAD_REMOVED && gui_pad != NULL && SDL_GetGamepadID(gui_pad) == event->gdevice.which) {
+    SDL_CloseGamepad(gui_pad);
+    gui_pad = NULL;
+    // Switch to another one if there is one
+    pads = SDL_GetGamepads(&count);
+    if (pads != NULL && count > 0) gui_pad = SDL_OpenGamepad(pads[0]);
+    SDL_free(pads);
+  }
+}
+
+const char *gui_gamepad_name() {
+  return gui_pad ? SDL_GetGamepadName(gui_pad) : NULL;
+}
+
+static int gui_pad_button(SDL_GamepadButton button) {
+  return gui_pad != NULL && SDL_GetGamepadButton(gui_pad, button);
+}
+
+// A stick or trigger from -1 to 1 (triggers 0 to 1), ignoring a small dead zone
+static double gui_pad_axis(SDL_GamepadAxis axis) {
+  double value;
+  if (gui_pad == NULL) return 0.0;
+  value = SDL_GetGamepadAxis(gui_pad, axis) / 32767.0;
+  if (fabs(value) < 0.25) return 0.0;
+  value = (value > 0 ? value - 0.25 : value + 0.25) / 0.75;
+  return value > 1.0 ? 1.0 : value < -1.0 ? -1.0 : value;
+}
+
 SDL_Window *gui_window = NULL;
 SDL_Renderer *gui_renderer = NULL;
 GuiArea screen_area = {0, 0, GUI_SCREEN_W, GUI_SCREEN_H};
@@ -328,9 +365,9 @@ void gui_update_display() {
   // Show everyone's scores while S is held, and while waiting to respawn
   if (clientShip->status == 0) {
     gui_text_centered(80, 2.0f, 0xffffff, "Your ship was destroyed");
-    gui_text_centered(104, 1.0f, 0xc0c0c0, "Press Tab to fly again");
+    gui_text_centered(104, 1.0f, 0xc0c0c0, gui_pad ? "Press Tab or Y to fly again" : "Press Tab to fly again");
   }
-  if (clientShip->status == 0 || SDL_GetKeyboardState(NULL)[SDL_SCANCODE_S]) {
+  if (clientShip->status == 0 || SDL_GetKeyboardState(NULL)[SDL_SCANCODE_S] || gui_pad_button(SDL_GAMEPAD_BUTTON_BACK)) {
     gui_draw_scoreboard();
   }
 
@@ -355,6 +392,7 @@ int gui_get_input(double *angle_change, double *accel_amount, int *energy_to_shi
 	double seconds_diff;
 	const bool *key;
 	SDL_Event event;
+	double turn, thrust;
 
 	if (DEBUG) printf("gui_get_input(%.2f, %.2f, %d, %d)\n",
 			  *angle_change, *accel_amount, *energy_to_shields, *flags);
@@ -374,6 +412,7 @@ int gui_get_input(double *angle_change, double *accel_amount, int *energy_to_shi
 	// Process window events; closing the window quits like ESC does
 	while (SDL_PollEvent(&event)) {
 		if (event.type == SDL_EVENT_QUIT) quit_requested=1;
+		gui_gamepad_event(&event);
 		// M turns all sound and music off and on
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_M && !event.key.repeat) audioToggleMute();
 	}
@@ -400,35 +439,31 @@ int gui_get_input(double *angle_change, double *accel_amount, int *energy_to_shi
 	// Now read the keys and do something based of what they say.
 	key=SDL_GetKeyboardState(NULL);
 
-	if (key[SDL_SCANCODE_LEFT]) // turn
-	{
-		*angle_change=-( seconds_diff * P_GUI_ANGLE_PER_SECOND );
-	}
+	// Turning and thrust can be partial on a gamepad's stick and trigger;
+	// the keys and the D-pad are all or nothing
+	turn = gui_pad_axis(SDL_GAMEPAD_AXIS_LEFTX);
+	if (key[SDL_SCANCODE_LEFT] || gui_pad_button(SDL_GAMEPAD_BUTTON_DPAD_LEFT)) turn = -1;
+	if (key[SDL_SCANCODE_RIGHT] || gui_pad_button(SDL_GAMEPAD_BUTTON_DPAD_RIGHT)) turn = 1;
+	*angle_change = turn * seconds_diff * P_GUI_ANGLE_PER_SECOND;
 
-	if (key[SDL_SCANCODE_RIGHT])
-	{
-		*angle_change=( seconds_diff * P_GUI_ANGLE_PER_SECOND );
-	}
+	thrust = gui_pad_axis(SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
+	if (key[SDL_SCANCODE_UP] || gui_pad_button(SDL_GAMEPAD_BUTTON_DPAD_UP)) thrust = 1;
+	*accel_amount = thrust * seconds_diff * P_GUI_ACCEL_PER_SECOND;
 
-	if (key[SDL_SCANCODE_UP]) // accel
-	{
-		*accel_amount=( seconds_diff * P_GUI_ACCEL_PER_SECOND );
-	}
-
-	if (key[SDL_SCANCODE_SPACE]||key[SDL_SCANCODE_LCTRL]) // fire
+	if (key[SDL_SCANCODE_SPACE]||key[SDL_SCANCODE_LCTRL]||gui_pad_button(SDL_GAMEPAD_BUTTON_SOUTH)) // fire
 	{
 		*flags|=P_GUI_FLAG_FIRE;
 	}
-	if (key[SDL_SCANCODE_TAB]) // hyper
+	if (key[SDL_SCANCODE_TAB]||gui_pad_button(SDL_GAMEPAD_BUTTON_NORTH)) // hyper
 	{
 		*flags|=P_GUI_FLAG_HYPER;
 	}
-	if (key[SDL_SCANCODE_ESCAPE]) // quit
+	if (key[SDL_SCANCODE_ESCAPE]||gui_pad_button(SDL_GAMEPAD_BUTTON_START)) // quit
 	{
 		*flags|=P_GUI_FLAG_QUIT;
 	}
 
-	if (key[SDL_SCANCODE_Z]) // energy to shield
+	if (key[SDL_SCANCODE_Z]||gui_pad_button(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER)) // energy to shield
 	{
 		*energy_to_shields=( seconds_diff * P_GUI_ENERGY_MOVE_PER_SECOND );
 		energy_smoothing_buffer+=( seconds_diff * P_GUI_ENERGY_MOVE_PER_SECOND )-(double)(*energy_to_shields);
@@ -439,7 +474,7 @@ int gui_get_input(double *angle_change, double *accel_amount, int *energy_to_shi
 		}
 	}
 
-	if (key[SDL_SCANCODE_X]) // energy from shield
+	if (key[SDL_SCANCODE_X]||gui_pad_button(SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER)) // energy from shield
 	{
 		*energy_to_shields=-( seconds_diff * P_GUI_ENERGY_MOVE_PER_SECOND );
 		energy_smoothing_buffer-=( seconds_diff * P_GUI_ENERGY_MOVE_PER_SECOND )-(double)(*energy_to_shields);
@@ -481,7 +516,7 @@ void gui_init_sdl()
 
 	if (FULLSCREEN) flags |= SDL_WINDOW_FULLSCREEN;
 
-	if (!SDL_Init(SDL_INIT_VIDEO) ||
+	if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD) ||
 	    !SDL_CreateWindowAndRenderer("NetSpaceWar", GUI_SCREEN_W, GUI_SCREEN_H, flags, &gui_window, &gui_renderer))
 	{ /* The display wouldn't set up properly. Die horribly. */
 		fprintf(stdout,"Display Error!!\n Error: %s\n", SDL_GetError());

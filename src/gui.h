@@ -34,6 +34,10 @@ If there is a failure initializing SDL then this function will not return, since
 
 */
 
+// Pass every SDL event here so gamepads plugged in or out are picked up
+void gui_gamepad_event(SDL_Event *event);
+// The connected gamepad's name, or NULL
+const char *gui_gamepad_name();
 // Open the window. Safe to call more than once.
 void gui_init_sdl();
 SDL_Window *gui_get_window();

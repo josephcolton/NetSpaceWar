@@ -111,6 +111,20 @@ The AI hunts the nearest ship, leads its shots, steers clear of planets, moves p
 | M | Turn sound and music off and on |
 | Escape | Leave the game |
 
+A gamepad works too, plugged in before or during a game:
+
+| Gamepad | Action |
+|---|---|
+| Left stick or D-pad | Turn (the stick turns gradually) |
+| Right trigger or D-pad up | Thrust (the trigger is gradual) |
+| A | Fire missile |
+| Y | Hyperjump (also respawns) |
+| Left / right bumper | Move energy to / from shields |
+| Back (hold) | Show the scoreboard |
+| Start | Leave the game |
+
+In the menus, use the D-pad or left stick to move, A to choose and B to go back. **Options** shows which gamepad is connected.
+
 The window can be resized; the game scales to fit.
 
 ### Rules
