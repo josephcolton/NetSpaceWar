@@ -421,6 +421,7 @@ static void launcherBuildScreen(Launcher *l) {
   }
   if (l->focus >= l->itemCount) l->focus = 0;
   if (scrolling) launcherScroll(l);
+  else l->scroll = l->scrollMax = 0; // Nothing to scroll, so no arrows
 }
 
 // Look for games on the local network; the Join screen lists them as they answer
@@ -775,8 +776,8 @@ static void launcherDraw(Launcher *l) {
     if (!l->items[i].hidden) launcherDrawItem(l, i);
   }
   // Arrows when there are more rows above or below
-  if (l->scroll > 0) gui_text(548, LAUNCHER_LIST_TOP + 4, 2.0f, COLOR_DIM, "^");
-  if (l->scroll < l->scrollMax) gui_text(548, LAUNCHER_LIST_BOTTOM - 20, 2.0f, COLOR_DIM, "v");
+  if (l->scroll > 0) gui_arrow(554, LAUNCHER_LIST_TOP + 2, 1, COLOR_DIM);
+  if (l->scroll < l->scrollMax) gui_arrow(554, LAUNCHER_LIST_BOTTOM - 22, 0, COLOR_DIM);
 
   if (l->screen == SCREEN_JOIN) {
     gui_text(60, LAUNCHER_GAMES_TOP - 16, 1.0f, COLOR_TITLE,

@@ -59,6 +59,8 @@ void gui_text_centered(float y, float scale, int color, const char *text);
 float gui_text_width(float scale, const char *text);
 void gui_fill_rect(float x, float y, float w, float h, int color);
 void gui_outline_rect(float x, float y, float w, float h, int color);
+// An arrow pointing up (or down), 16 wide and 20 tall, from (x, y)
+void gui_arrow(float x, float y, int up, int color);
 // Draw a full-screen message (title and an optional detail line) and show it
 void gui_draw_status(const char *title, const char *detail);
 

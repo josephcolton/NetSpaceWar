@@ -1137,6 +1137,17 @@ void gui_fill_rect(float x, float y, float w, float h, int color) {
   SDL_RenderFillRect(gui_renderer, &rect);
 }
 
+void gui_arrow(float x, float y, int up, int color) {
+  // A 16 wide, 20 tall arrow: a triangle head on a stem
+  float headY = up ? y : y + 20, baseY = up ? y + 9 : y + 11;
+  SDL_FColor c = {((color >> 16) & 0xff) / 255.0f, ((color >> 8) & 0xff) / 255.0f, (color & 0xff) / 255.0f, 1.0f};
+  SDL_Vertex head[3] = {
+    {{x + 8, headY}, c, {0, 0}}, {{x, baseY}, c, {0, 0}}, {{x + 16, baseY}, c, {0, 0}}
+  };
+  SDL_RenderGeometry(gui_renderer, NULL, head, 3, NULL, 0);
+  gui_fill_rect(x + 5, up ? y + 9 : y, 6, 11, color);
+}
+
 void gui_outline_rect(float x, float y, float w, float h, int color) {
   SDL_FRect rect = {x, y, w, h};
   gui_set_color(color);
