@@ -73,6 +73,7 @@ int main(int argc, char **argv) {
   struct timeval timeout;
   int timeLeft = SERVER_TIMEOUT;
   double startTime;
+  int discoverySocket = -1;
   int i, n;
 
   // File Descriptors for the select command
@@ -151,6 +152,9 @@ int main(int argc, char **argv) {
   // Initialize the server
   serverInitialize();
 
+  // Answer searches for games on the local network, if other computers can reach us
+  if (listen_addr.s_addr == htonl(INADDR_ANY)) discoverySocket = serverOpenDiscovery();
+
   // infine listening loop
   if (VERBOSE) printf("Ready for Connections\n");
   serverLog("NetSpaceWar %s listening on %s port %d", NSW_VERSION, inet_ntoa(listen_addr), server_port);
@@ -164,6 +168,7 @@ int main(int argc, char **argv) {
     // Add mysocket socket file descriptor to select set
     FD_ZERO (&readfds); // initialize set
     FD_SET (serverSocket, &readfds); // Add mysocket port to set
+    if (discoverySocket >= 0) FD_SET (discoverySocket, &readfds);
 
     // Set the timeout for reading
     timeLeft = lastTimeLeft(timeLeft);
@@ -171,7 +176,7 @@ int main(int argc, char **argv) {
     timeout.tv_usec = timeLeft;
 
     // Status lets me know what is ready for reading, if anything
-    status = select (serverSocket+1, &readfds, NULL, NULL, &timeout);
+    status = select ((serverSocket > discoverySocket ? serverSocket : discoverySocket) + 1, &readfds, NULL, NULL, &timeout);
 
     // Select failure
     if (status < 0) {
@@ -213,6 +218,9 @@ int main(int argc, char **argv) {
 	// The socket is ready to read because we have a packet
 	// from a client program.
         handle_socket(serverSocket);
+      }
+      if (discoverySocket >= 0 && FD_ISSET (discoverySocket, &readfds)) {
+        serverAnswerDiscovery(discoverySocket, server_port);
       }
     }
 

@@ -90,6 +90,46 @@ void serverSpawnPoint(object_t self, double *xcoord, double *ycoord) {
   }
 }
 
+int serverOpenDiscovery() {
+  struct sockaddr_in addr;
+  int s, on = 1;
+
+  s = (int)socket(AF_INET, SOCK_DGRAM, 0);
+  if (s < 0) return -1;
+  // Several servers on one computer can all answer searches
+  setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (const char *)&on, sizeof(on));
+  memset(&addr, 0, sizeof(addr));
+  addr.sin_family = AF_INET;
+  addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  addr.sin_port = htons(DISCOVERY_PORT);
+  if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+    serverLog("Can't answer searches for games: port %d is in use", DISCOVERY_PORT);
+    netCloseSocket(s);
+    return -1;
+  }
+  netIgnoreConnReset(s);
+  return s;
+}
+
+void serverAnswerDiscovery(int discoverySocket, int gamePort) {
+  char buffer[64];
+  struct sockaddr_in from;
+  socklen_t fromLength = sizeof(from);
+  struct msg_serverinfo info;
+  int bytes;
+
+  bytes = recvfrom(discoverySocket, buffer, sizeof(buffer), 0, (struct sockaddr *)&from, &fromLength);
+  if (bytes < (int)sizeof(message_t) || ((struct msg_basic *)buffer)->mtype != MSG_DISCOVER) return;
+  memset(&info, 0, sizeof(info));
+  info.mtype = MSG_SERVERINFO;
+  info.port = (uint16_t)gamePort;
+  info.players = (uint8_t)sdataCountClients;
+  info.maxPlayers = MAX_COUNT_CLIENTS;
+  strncpy(info.version, NSW_VERSION, VERSION_MAX - 1);
+  strncpy(info.host, serverHostName, USERNAME_MAX - 1);
+  sendto(discoverySocket, (const char *)&info, sizeof(info), 0, (struct sockaddr *)&from, fromLength);
+}
+
 // Initialize the server
 void serverInitialize() {
   double xcoord, ycoord;

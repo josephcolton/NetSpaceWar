@@ -73,7 +73,7 @@ Run `NetSpaceWar` (on Windows, double-click `NetSpaceWar.exe`).
 
 - **Host Game** starts a game on your computer. Choose your name, a port, and how many AI bots to add (up to 4; a game holds 5 ships). The screen shows the address other players can use to join. On Windows, allow the firewall prompt so they can reach you.
   - **Game Settings** changes the rules for games you host: number of planets, gravity, missile life, top speed, crash and missile damage, the energy cost of shots and hyperjumps, how many planets start with volcanoes, how long a volcano waits between recharge orbs, how often asteroids drift in (None to Frequent; None by default), and the match length (Endless by default, or first to 500, 1000 or 5000 points). The list scrolls. Changed values are highlighted, and **Reset to Defaults** puts them all back. Everyone who joins, bots included, gets the host's rules: players see them by holding S.
-- **Join Game** connects to someone else's game by address and port.
+- **Join Game** connects to someone else's game by address and port. It also searches your local network and lists the games it finds (the host's name, address and players); choose one to fill in its address and port. **Find Games** searches again. Games running a different version are shown dimmed. Servers started with the address 0.0.0.0 answer searches on UDP port 27959.
 
 <p align="center">
   <img src="docs/images/settings.png" width="60%" alt="The Game Settings screen, with planets, gravity and max speed changed from their defaults">

@@ -28,6 +28,13 @@ extern int serverShutdown;                // Set when the main loop should end
 // Call before deleting a client who is leaving
 void serverClientLeaving(object_t objectID);
 
+/* Answering searches for games on the local network (servers listening on
+   0.0.0.0 only, since others can't reach the rest) */
+// Returns the discovery socket, or -1 if DISCOVERY_PORT can't be used
+int serverOpenDiscovery();
+// Read a search from the discovery socket and answer it
+void serverAnswerDiscovery(int discoverySocket, int gamePort);
+
 /* Server Initialization, misc */
 void serverInitialize();
 // Where to put a ship joining, respawning or hyperjumping (self: its own objectID)

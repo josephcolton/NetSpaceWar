@@ -171,6 +171,9 @@ static inline int versionCompatible(const char *version) {
 #define MSG_UPDATEORBS     16
 #define MSG_UPDATEASTEROIDS 17
 #define MSG_EVENT          18
+#define MSG_DISCOVER       19 // A broadcast search for games on the local network...
+#define MSG_SERVERINFO     20 // ...and a server's answer
+#define DISCOVERY_PORT     27959 // Servers open to the network listen here for searches
 #define EVENT_TEXT_MAX     80 // Longest event line, with its terminator
 
 /* Define Actions */
@@ -402,6 +405,20 @@ struct msg_event {
   char text[EVENT_TEXT_MAX];
 } packed;
 
+// Looking for games: sent to DISCOVERY_PORT on the broadcast address
+struct msg_discover {
+  message_t mtype; /* = MSG_DISCOVER */
+} packed;
+
+// A server's answer to a search. Its address is where the answer came from.
+struct msg_serverinfo {
+  message_t mtype; /* = MSG_SERVERINFO */
+  uint16_t port;               // Where to join
+  uint8_t players, maxPlayers;
+  char version[VERSION_MAX];
+  char host[USERNAME_MAX];     // The hosting player, or empty for a standalone server
+} packed;
+
 // Report explosion location to client
 struct msg_explosion {
   message_t mtype; /* = MSG_EXPLOSION */
@@ -485,6 +502,7 @@ _Static_assert(sizeof(struct msg_updateorbs) == 6, "msg_updateorbs wire size");
 _Static_assert(sizeof(struct dataNodeAsteroids) == 42, "dataNodeAsteroids wire size");
 _Static_assert(sizeof(struct msg_updateasteroids) == 6, "msg_updateasteroids wire size");
 _Static_assert(sizeof(struct msg_event) == 82, "msg_event wire size");
+_Static_assert(sizeof(struct msg_serverinfo) == 42, "msg_serverinfo wire size");
 _Static_assert(sizeof(struct msg_clientinfo) == 56, "msg_clientinfo wire size");
 _Static_assert(sizeof(struct msg_updateplayers) == 6, "msg_updateplayers wire size");
 _Static_assert(sizeof(struct msg_clientupdate) == 24, "msg_clientupdate wire size");

@@ -43,6 +43,13 @@ void netCloseSocket(int mysocket);
 // to connect. Writes a dotted IP into buf, or "localhost" if there is none.
 void netLocalAddress(char *buf, int buflen);
 
+// This machine's IPv4 network interfaces that are up (loopback left out):
+// each one's address and its subnet's broadcast address. Fills up to max
+// and returns how many.
+struct netInterface {
+  struct in_addr address, broadcast;
+};
+int netInterfaces(struct netInterface *list, int max);
 // Error code of the last failed socket call (errno, or WSAGetLastError())
 int netLastError();
 

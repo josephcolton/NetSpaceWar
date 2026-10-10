@@ -5,6 +5,7 @@
 #include "launcher.h"
 #include "options.h"
 #include "audio.h"
+#include "discover.h"
 
 #define LAUNCHER_DEFAULT_PORT "27960"
 #define LAUNCHER_MAX_BOTS     (MAX_COUNT_CLIENTS - 1) // Leave room for the host
@@ -13,6 +14,7 @@
 #define LAUNCHER_MAX_ITEMS    (OPTION_COUNT + 4)
 #define LAUNCHER_LIST_TOP     70  // Where a scrolling screen's rows show...
 #define LAUNCHER_LIST_BOTTOM  340 // ...and end
+#define LAUNCHER_GAMES_TOP    336 // Where the Join screen lists games found on the network
 #define LAUNCHER_MAX_ARGS     (5 + 2 * OPTION_COUNT) // Server: address, port, --silent, --host-player name, --option value...
 
 #ifdef _WIN32
@@ -40,11 +42,11 @@ typedef struct {
 } LauncherSettings;
 
 typedef enum { SCREEN_MAIN, SCREEN_HOST, SCREEN_JOIN, SCREEN_SETTINGS, SCREEN_ABOUT, SCREEN_OPTIONS } LauncherScreen;
-typedef enum { ITEM_BUTTON, ITEM_TEXT, ITEM_CHOICE } LauncherItemKind;
+typedef enum { ITEM_BUTTON, ITEM_TEXT, ITEM_CHOICE, ITEM_GAME } LauncherItemKind;
 typedef enum {
   ACTION_NONE, ACTION_SHOW_HOST, ACTION_SHOW_JOIN, ACTION_QUIT,
   ACTION_START_HOST, ACTION_START_JOIN, ACTION_BACK,
-  ACTION_SHOW_SETTINGS, ACTION_RESET_SETTINGS, ACTION_SHOW_ABOUT, ACTION_SHOW_OPTIONS
+  ACTION_SHOW_SETTINGS, ACTION_RESET_SETTINGS, ACTION_SHOW_ABOUT, ACTION_SHOW_OPTIONS, ACTION_FIND_GAMES
 } LauncherAction;
 
 /* One line of a menu: a button, a text field, or a number to pick */
@@ -60,6 +62,7 @@ typedef struct {
   int wrap;               // Past one end goes around to the other
   const char *help;       // Game options: shown under the menu while focused
   int hidden;             // Scrolled out of view
+  int game;               // ITEM_GAME: which found game
   SDL_FRect box;          // Where it is on screen, for the mouse
 } LauncherItem;
 
@@ -74,6 +77,9 @@ typedef struct {
   int running;
   float scroll, scrollMax; // How far a long screen's rows are scrolled
   int followFocus;         // Scroll to the focused row (it moved by keyboard)
+  struct foundGame found[DISCOVER_MAX]; // Games on the local network (Join screen)
+  int foundCount;
+  int searching;
 } Launcher;
 
 /* Settings file */
@@ -379,14 +385,17 @@ static void launcherBuildScreen(Launcher *l) {
     launcherAddText(l, "Server", l->settings.host, LAUNCHER_HOST_MAX, 0);
     launcherAddText(l, "Port", l->settings.port, LAUNCHER_PORT_MAX, 1);
     launcherAddButton(l, "Join Game", ACTION_START_JOIN);
+    launcherAddButton(l, "Find Games", ACTION_FIND_GAMES);
     launcherAddButton(l, "Back", ACTION_BACK);
+    for (i=0; i < l->foundCount; i++) launcherAdd(l, ITEM_GAME, NULL)->game = i;
   }
 
   // Fields are rows of label + box; buttons are centered below them. The
   // settings screen has more rows than fit, so they scroll between
   // LAUNCHER_LIST_TOP and LAUNCHER_LIST_BOTTOM and its buttons stay below.
   scrolling = (l->screen == SCREEN_SETTINGS);
-  y = (l->screen == SCREEN_MAIN) ? 220 : (l->screen == SCREEN_ABOUT) ? 392 : scrolling ? LAUNCHER_LIST_TOP : 124;
+  y = (l->screen == SCREEN_MAIN) ? 220 : (l->screen == SCREEN_ABOUT) ? 392 : scrolling ? LAUNCHER_LIST_TOP :
+      (l->screen == SCREEN_JOIN) ? 96 : 124;
   for (i=0; i < l->itemCount; i++) {
     LauncherItem *item = &l->items[i];
     item->hidden = 0;
@@ -401,12 +410,49 @@ static void launcherBuildScreen(Launcher *l) {
     item->box.y = y;
     item->box.h = scrolling ? 24 : 28;
     y += scrolling ? 30 : 40;
+    // The Join screen is packed tighter to fit the games found under it
+    if (l->screen == SCREEN_JOIN) y -= (item->kind == ITEM_BUTTON) ? 6 : 4;
+    if (item->kind == ITEM_GAME) {
+      item->box.x = 60;
+      item->box.w = GUI_SCREEN_W - 120;
+      item->box.y = LAUNCHER_GAMES_TOP + item->game * 20;
+      item->box.h = 18;
+    }
   }
   if (l->focus >= l->itemCount) l->focus = 0;
   if (scrolling) launcherScroll(l);
 }
 
+// Look for games on the local network; the Join screen lists them as they answer
+static void launcherFindGames(Launcher *l) {
+  l->foundCount = 0;
+  l->searching = 1;
+  discoverStart();
+}
+
+// A game found on the network was chosen: fill in where to join it
+static void launcherPickGame(Launcher *l, int game) {
+  struct foundGame *found = &l->found[game];
+  int i;
+  if (!found->compatible) {
+    snprintf(l->status, LEN, "That game runs version %s and you have %s", found->version, NSW_VERSION);
+    return;
+  }
+  launcherCopy(l->settings.host, LAUNCHER_HOST_MAX, found->address);
+  snprintf(l->settings.port, LAUNCHER_PORT_MAX, "%d", found->port);
+  l->status[0] = 0;
+  // On to the Join Game button
+  for (i=0; i < l->itemCount; i++) {
+    if (l->items[i].kind == ITEM_BUTTON && l->items[i].action == ACTION_START_JOIN) l->focus = i;
+  }
+}
+
 static void launcherShowScreen(Launcher *l, LauncherScreen screen) {
+  if (screen == SCREEN_JOIN) launcherFindGames(l);
+  else {
+    discoverStop();
+    l->searching = 0;
+  }
   l->screen = screen;
   l->focus = 0;
   l->scroll = 0;
@@ -427,6 +473,7 @@ static void launcherActivate(Launcher *l, LauncherAction action) {
   case ACTION_SHOW_SETTINGS: launcherShowScreen(l, SCREEN_SETTINGS); break;
   case ACTION_SHOW_ABOUT: launcherShowScreen(l, SCREEN_ABOUT); break;
   case ACTION_SHOW_OPTIONS: launcherShowScreen(l, SCREEN_OPTIONS); break;
+  case ACTION_FIND_GAMES: l->status[0] = 0; launcherFindGames(l); break;
   case ACTION_RESET_SETTINGS:
     gameOptionsReset(l->settings.options);
     launcherSaveSettings(&l->settings);
@@ -496,6 +543,7 @@ static void launcherHandleKey(Launcher *l, SDL_Keycode key, SDL_Keymod mod) {
   case SDLK_KP_ENTER:
     // Enter on a field moves on to the next line
     if (item->kind == ITEM_BUTTON) launcherActivate(l, item->action);
+    else if (item->kind == ITEM_GAME) launcherPickGame(l, item->game);
     else l->focus = (l->focus + 1) % l->itemCount;
     break;
   case SDLK_ESCAPE:
@@ -567,6 +615,8 @@ static void launcherHandleEvent(Launcher *l, SDL_Event *event) {
     item = &l->items[i];
     if (item->kind == ITEM_BUTTON) {
       launcherActivate(l, item->action);
+    } else if (item->kind == ITEM_GAME) {
+      launcherPickGame(l, item->game);
     } else if (item->kind == ITEM_CHOICE) {
       // Left half lowers the number, right half raises it
       launcherChangeChoice(item, (event->button.x < item->box.x + item->box.w / 2) ? -1 : 1);
@@ -593,6 +643,19 @@ static void launcherDrawItem(Launcher *l, int index) {
   if (item->kind == ITEM_BUTTON) {
     if (focused) gui_outline_rect(item->box.x, item->box.y, item->box.w, item->box.h, COLOR_FOCUS);
     gui_text_centered(textY, 2.0f, color, item->label);
+    return;
+  }
+  if (item->kind == ITEM_GAME) {
+    // One line per game: whose it is, where, and how full; dim if we can't join it
+    struct foundGame *game = &l->found[item->game];
+    char where[96], who[40];
+    if (game->host[0]) snprintf(who, sizeof(who), "%.19s's game", game->host);
+    else snprintf(who, sizeof(who), "Server");
+    snprintf(where, sizeof(where), "%s:%d", strcmp(game->address, "127.0.0.1") ? game->address : "this computer", game->port);
+    if (game->compatible) snprintf(text, LEN, "%-24.24s %-24.24s %d/%d players", who, where, game->players, game->maxPlayers);
+    else snprintf(text, LEN, "%-24.24s %-24.24s version %s", who, where, game->version);
+    if (focused) gui_outline_rect(item->box.x, item->box.y, item->box.w, item->box.h, COLOR_FOCUS);
+    gui_text(item->box.x + 6, item->box.y + 5, 1.0f, !game->compatible ? COLOR_DIM : focused ? COLOR_FOCUS : COLOR_TEXT, text);
     return;
   }
 
@@ -695,7 +758,7 @@ static void launcherDraw(Launcher *l) {
     gui_text_centered(406, 1.0f, COLOR_DIM, "These are yours: they apply to every game you host or join.");
     gui_text_centered(420, 1.0f, COLOR_DIM, "In a game, M turns all sound off and on.");
   } else {
-    gui_text_centered(70, 3.0f, COLOR_TITLE, l->screen == SCREEN_HOST ? "HOST A GAME" : "JOIN A GAME");
+    gui_text_centered(l->screen == SCREEN_HOST ? 70 : 44, 3.0f, COLOR_TITLE, l->screen == SCREEN_HOST ? "HOST A GAME" : "JOIN A GAME");
   }
 
   for (i=0; i < l->itemCount; i++) {
@@ -704,6 +767,13 @@ static void launcherDraw(Launcher *l) {
   // Arrows when there are more rows above or below
   if (l->scroll > 0) gui_text(548, LAUNCHER_LIST_TOP + 4, 2.0f, COLOR_DIM, "^");
   if (l->scroll < l->scrollMax) gui_text(548, LAUNCHER_LIST_BOTTOM - 20, 2.0f, COLOR_DIM, "v");
+
+  if (l->screen == SCREEN_JOIN) {
+    gui_text(60, LAUNCHER_GAMES_TOP - 16, 1.0f, COLOR_TITLE,
+             l->searching ? "Searching this network for games..." :
+             l->foundCount ? "Games on this network (choose one to fill in its address):" :
+                             "No games found on this network. Enter an address, or Find Games again.");
+  }
 
   if (l->screen == SCREEN_HOST) {
     port = atoi(l->settings.port);
@@ -749,6 +819,12 @@ int launcherRun() {
   while (l.running) {
     // Calm music in the menus (a game switches it, so set it every pass)
     audioMusic(MUSIC_MENU);
+    // Collect answers to a search for games, and list them as they come
+    if (l.searching) {
+      int before = l.foundCount;
+      l.searching = discoverPoll(l.found, &l.foundCount);
+      if (l.foundCount != before) launcherBuildScreen(&l);
+    }
     while (l.running && SDL_PollEvent(&event)) {
       LauncherScreen oldScreen = l.screen;
       int oldFocus = l.focus;

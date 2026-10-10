@@ -5,6 +5,13 @@
 
 #include "platform.h"
 
+#ifdef _WIN32
+#include <iphlpapi.h>
+#else
+#include <ifaddrs.h>
+#include <net/if.h>
+#endif
+
 int netResolveHost(const char *hostname, struct in_addr *addr) {
   struct hostent *lookup;
 
@@ -77,6 +84,36 @@ void netIgnoreConnReset(int mysocket) {
   WSAIoctl((SOCKET)mysocket, SIO_UDP_CONNRESET, &report, sizeof(report), NULL, 0, &bytes, NULL, NULL);
 }
 
+int netInterfaces(struct netInterface *list, int max) {
+  ULONG size = 16384, flags = GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER;
+  IP_ADAPTER_ADDRESSES *adapters = (IP_ADAPTER_ADDRESSES *)malloc(size), *a;
+  IP_ADAPTER_UNICAST_ADDRESS *u;
+  ULONG status = GetAdaptersAddresses(AF_INET, flags, NULL, adapters, &size);
+  int count = 0;
+
+  if (status == ERROR_BUFFER_OVERFLOW) {
+    free(adapters);
+    adapters = (IP_ADAPTER_ADDRESSES *)malloc(size);
+    status = GetAdaptersAddresses(AF_INET, flags, NULL, adapters, &size);
+  }
+  if (status != NO_ERROR) {
+    free(adapters);
+    return 0;
+  }
+  for (a = adapters; a != NULL && count < max; a = a->Next) {
+    if (a->OperStatus != IfOperStatusUp || a->IfType == IF_TYPE_SOFTWARE_LOOPBACK) continue;
+    for (u = a->FirstUnicastAddress; u != NULL && count < max; u = u->Next) {
+      struct sockaddr_in *sin = (struct sockaddr_in *)u->Address.lpSockaddr;
+      unsigned long mask = (u->OnLinkPrefixLength == 0) ? 0 : 0xffffffffUL << (32 - u->OnLinkPrefixLength);
+      list[count].address = sin->sin_addr;
+      list[count].broadcast.s_addr = sin->sin_addr.s_addr | htonl(~mask & 0xffffffffUL);
+      count++;
+    }
+  }
+  free(adapters);
+  return count;
+}
+
 double platformNow() {
   static LARGE_INTEGER frequency;
   LARGE_INTEGER counter;
@@ -101,6 +138,26 @@ int netLastError() {
 
 void netIgnoreConnReset(int mysocket) {
   (void)mysocket;
+}
+
+int netInterfaces(struct netInterface *list, int max) {
+  struct ifaddrs *all, *i;
+  int count = 0;
+
+  if (getifaddrs(&all) != 0) return 0;
+  for (i = all; i != NULL && count < max; i = i->ifa_next) {
+    if (i->ifa_addr == NULL || i->ifa_addr->sa_family != AF_INET) continue;
+    if (!(i->ifa_flags & IFF_UP) || (i->ifa_flags & IFF_LOOPBACK)) continue;
+    list[count].address = ((struct sockaddr_in *)i->ifa_addr)->sin_addr;
+    if ((i->ifa_flags & IFF_BROADCAST) && i->ifa_broadaddr != NULL) {
+      list[count].broadcast = ((struct sockaddr_in *)i->ifa_broadaddr)->sin_addr;
+    } else {
+      list[count].broadcast.s_addr = htonl(INADDR_BROADCAST);
+    }
+    count++;
+  }
+  freeifaddrs(all);
+  return count;
 }
 
 double platformNow() {
