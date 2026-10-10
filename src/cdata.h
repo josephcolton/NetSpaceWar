@@ -2,6 +2,7 @@
 #define CDATA_H
 
 #include "global.h"
+#include "options.h"
 
 // Client Information
 extern int clientAlive;
@@ -23,6 +24,11 @@ extern int cdataCountPlanets;
 // The latest scoreboard from the server, in the server's order
 extern struct wireScore cdataScores[MAX_COUNT_CLIENTS];
 extern int cdataCountScores;
+
+// The server's game rules: defaults until its msg_gameoptions arrives
+extern int cdataOptions[OPTION_COUNT];
+extern int cdataOptionsReceived;
+#define CLIENT_OPTION(x) (cdataOptions[OPTION_##x])
 
 // We need an array for each type of data.
 extern struct dataNodeClients *cdataArrayClients[MAX_COUNT_CLIENTS];

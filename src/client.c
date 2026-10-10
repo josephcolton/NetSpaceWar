@@ -72,6 +72,7 @@ void chandle_msg_loginack(int mysocket, void *packet, struct sockaddr_in server_
     // csend_msg_request(mysocket, server_addr, DATA_CLIENTINFO);
     csend_msg_request(mysocket, server_addr, DATA_CLIENTLIST);
     csend_msg_request(mysocket, server_addr, DATA_SCORES);
+    csend_msg_request(mysocket, server_addr, DATA_OPTIONS);
   } else {
     clientAlive = 0;
   }
@@ -387,6 +388,27 @@ void chandle_msg_scoreboard(int mysocket, void *packet, struct sockaddr_in serve
   cdataCountScores = count;
 }
 
+void chandle_msg_gameoptions(int mysocket, void *packet, struct sockaddr_in server_addr) {
+  message_t mtype;
+  int i, count;
+
+  if (DEBUG) printf("Packet Received: chandle_msg_gameoptions\n");
+
+  // Verify message type
+  mtype = ((struct msg_gameoptions *)packet)->mtype;
+  if (mtype != MSG_GAMEOPTIONS) return;
+  count = ((struct msg_gameoptions *)packet)->obj_count;
+  // Options this client does not know about are ignored
+  if (count < 0) count = 0;
+  if (count > OPTION_COUNT) count = OPTION_COUNT;
+
+  for (i=0; i < count; i++) {
+    cdataOptions[i] = gameOptionClamp(i, ((struct msg_gameoptions *)packet)->values[i]);
+    if (DEBUG) printf("  packet->values[%d] = %d (%s)\n", i, cdataOptions[i], gameOptions[i].name);
+  }
+  cdataOptionsReceived = 1;
+}
+
 void chandle_msg_deleteobj(int mysocket, void *packet, struct sockaddr_in server_addr) {
   message_t mtype;
   data_t object_type;
@@ -574,6 +596,7 @@ void csend_msg_clientupdate(int mysocket, struct sockaddr_in server_addr, action
 /* Connection helpers shared by the game client and the AI */
 double clientLastPacketTime = 0.0;
 static double clientLastLoginTime = 0.0;
+static double clientLastOptionsTime = 0.0;
 
 int clientOpenSocket(const char *hostname, int port, struct sockaddr_in *server_addr) {
   int mysocket;
@@ -602,6 +625,7 @@ int clientOpenSocket(const char *hostname, int port, struct sockaddr_in *server_
   // Starts the timeouts that clientConnectionProblem() checks
   clientLastPacketTime = platformNow();
   clientLastLoginTime = 0.0;
+  clientLastOptionsTime = 0.0;
   return mysocket;
 }
 
@@ -635,6 +659,7 @@ message_t clientReceive(int mysocket) {
   if (mtype == MSG_CLIENTLIST)     chandle_msg_clientlist(mysocket, packet, server_addr);
   if (mtype == MSG_SCOREBOARD)     chandle_msg_scoreboard(mysocket, packet, server_addr);
   if (mtype == MSG_DELETEOBJ)      chandle_msg_deleteobj(mysocket, packet, server_addr);
+  if (mtype == MSG_GAMEOPTIONS)    chandle_msg_gameoptions(mysocket, packet, server_addr);
 
   free(packet);
   return mtype;
@@ -644,7 +669,15 @@ void clientRetryLogin(int mysocket, struct sockaddr_in server_addr) {
   // UDP can lose the login or its reply, and the server may still be
   // starting up, so keep asking until we have an object ID
   double now = platformNow();
-  if (clientObjectID != 0) return;
+  if (clientObjectID != 0) {
+    // Then keep asking for the game rules until they arrive. The login
+    // reply already asked once, so the first retry waits.
+    if (clientLastOptionsTime == 0.0) clientLastOptionsTime = now;
+    if (cdataOptionsReceived || now - clientLastOptionsTime < LOGIN_RETRY) return;
+    csend_msg_request(mysocket, server_addr, DATA_OPTIONS);
+    clientLastOptionsTime = now;
+    return;
+  }
   if (now - clientLastLoginTime < LOGIN_RETRY) return;
   csend_msg_login(mysocket, server_addr, clientUsername);
   clientLastLoginTime = now;

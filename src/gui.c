@@ -893,7 +893,7 @@ static void gui_draw_score() {
   struct wireScore *own = gui_own_score();
   snprintf(text, LEN, "Score %d", own ? own->score : 0);
   gui_text(8, 8, 2.0f, 0xffffff, text);
-  gui_text(8, 30, 1.0f, 0x808080, "Hold S for scores");
+  gui_text(8, 30, 1.0f, 0x808080, "Hold S for scores and rules");
 }
 
 static int gui_compare_scores(const void *a, const void *b) {
@@ -908,8 +908,10 @@ static void gui_draw_scoreboard() {
   struct wireScore sorted[MAX_COUNT_CLIENTS];
   char text[LEN];
   int i, color, count = cdataCountScores;
-  float w = 420, rowH = 22;
-  float h = 70 + count * rowH;
+  int ruleRows = (OPTION_COUNT + 1) / 2;
+  float w = 420, rowH = 22, ruleH = 14;
+  float rulesY = 70 + count * rowH; // Game rules go under the scores
+  float h = rulesY + 26 + ruleRows * ruleH + 8;
   float x = (GUI_SCREEN_W - w) / 2, y = 140;
   float colName = x + 20, colScore = x + 230, colKills = x + 300, colDeaths = x + 360;
 
@@ -944,5 +946,16 @@ static void gui_draw_scoreboard() {
     gui_text(colKills, rowY, 2.0f, color, text);
     snprintf(text, LEN, "%d", sorted[i].deaths);
     gui_text(colDeaths, rowY, 2.0f, color, text);
+  }
+
+  // The server's rules in two columns; ones changed from the default stand out
+  gui_text_centered(y + rulesY + 6, 1.0f, 0x60c0ff, cdataOptionsReceived ? "GAME RULES" : "GAME RULES (waiting for server)");
+  for (i=0; i < OPTION_COUNT; i++) {
+    float colX = x + 20 + (i / ruleRows) * (w / 2);
+    float rowY = y + rulesY + 26 + (i % ruleRows) * ruleH;
+    color = (cdataOptions[i] != gameOptions[i].defaultValue) ? 0xffff40 : 0xc0c0c0;
+    gui_text(colX, rowY, 1.0f, 0x808080, gameOptions[i].label);
+    snprintf(text, LEN, "%d", cdataOptions[i]);
+    gui_text(colX + w / 2 - 40 - gui_text_width(1.0f, text), rowY, 1.0f, color, text);
   }
 }

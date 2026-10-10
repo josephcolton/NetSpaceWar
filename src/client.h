@@ -17,6 +17,7 @@ void chandle_msg_explosion(int mysocket, void *packet, struct sockaddr_in server
 void chandle_msg_clientlist(int mysocket, void *packet, struct sockaddr_in server_addr);
 void chandle_msg_scoreboard(int mysocket, void *packet, struct sockaddr_in server_addr);
 void chandle_msg_deleteobj(int mysocket, void *packet, struct sockaddr_in server_addr);
+void chandle_msg_gameoptions(int mysocket, void *packet, struct sockaddr_in server_addr);
 
 /* Client Sending Messages */
 void csend_msg_login(int mysocket, struct sockaddr_in server_addr, char *username);
@@ -37,7 +38,8 @@ extern double clientLastPacketTime;
 int clientOpenSocket(const char *hostname, int port, struct sockaddr_in *server_addr);
 // Read one packet and pass it to its handler. Returns its message type.
 message_t clientReceive(int mysocket);
-// Send the login, again every LOGIN_RETRY seconds until it is accepted
+// Send the login, again every LOGIN_RETRY seconds until it is accepted,
+// then the request for the game rules until they arrive
 void clientRetryLogin(int mysocket, struct sockaddr_in server_addr);
 // True when login has taken too long or the server has gone quiet; the
 // reason is in clientStatusMessage. startTime is when we started connecting.

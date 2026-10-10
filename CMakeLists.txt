@@ -30,7 +30,7 @@ add_executable(SpaceWarServer src/SpaceWarServer.c src/server.c src/sdata.c src/
                src/platform.c)
 
 # AI client: headless, no external dependencies
-add_executable(SpaceWarAI src/SpaceWarAI.c src/ai.c src/client.c src/cdata.c src/platform.c)
+add_executable(SpaceWarAI src/SpaceWarAI.c src/ai.c src/client.c src/cdata.c src/options.c src/platform.c)
 
 # The game (menu + client): SDL3. Uses an installed SDL3 if there is one, otherwise
 # downloads it and links it statically so players need nothing installed.

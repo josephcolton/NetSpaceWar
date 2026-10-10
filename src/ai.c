@@ -39,6 +39,31 @@ static double aiDistanceTo(double xcoord, double ycoord) {
   return sqrt(dx * dx + dy * dy);
 }
 
+/* Limits that follow the server's game rules (cdataOptions) */
+
+// Speed used to close on a target or get away from a planet
+static double aiCruiseSpeed() {
+  return CLIENT_OPTION(MAX_VELOCITY) * AI_CRUISE_FRACTION;
+}
+
+// Farthest target worth shooting at: missiles blow up at the end of their life
+static double aiFireRange() {
+  double reach = MISSILE_EXTRA_SPEED * CLIENT_OPTION(MISSILE_TTL) * AI_MISSILE_REACH;
+  return (reach < AI_FIRE_RANGE) ? reach : AI_FIRE_RANGE;
+}
+
+// Where to stop closing in: well inside firing range when missiles are short-lived
+static double aiEngageRange() {
+  double range = aiFireRange() * AI_ENGAGE_FRACTION;
+  return (range < AI_ENGAGE_RANGE) ? range : AI_ENGAGE_RANGE;
+}
+
+// Distance from a planet's center to steer clear of. Stronger gravity
+// needs more room to escape; with no gravity, only the planet itself.
+static double aiPlanetDanger() {
+  return P_GUI_DEFAULT_PLANET_SIZE + AI_PLANET_MARGIN * (0.5 + 0.5 * CLIENT_OPTION(GRAVITY) / GRAVITY);
+}
+
 void clientAIinitAI() {
   clientAItargetID = 0;
   aiLastUpdate = aiNow();
@@ -133,15 +158,18 @@ static void aiManageEnergy(int mysocket, struct sockaddr_in server_addr, double 
 }
 
 // Find the planet we will pass closest to within AI_PLANET_LOOKAHEAD
-// seconds, if that pass is inside AI_PLANET_DANGER, or NULL
+// seconds, if that pass is inside aiPlanetDanger(), or NULL. Planets are
+// harmless when crashes do no damage.
 static struct dataNodePlanets *aiPlanetThreat() {
   int i;
   double px, py, t, dist;
   double vx = clientShip->xVelocity;
   double vy = clientShip->yVelocity;
   double speed2 = vx * vx + vy * vy;
-  double closeDist = AI_PLANET_DANGER;
+  double closeDist = aiPlanetDanger();
   struct dataNodePlanets *closest = NULL;
+
+  if (CLIENT_OPTION(CRASH_DMG) == 0) return NULL;
 
   for (i=0; i < cdataCountPlanets; i++) {
     if (cdataArrayPlanets[i] == NULL) continue;
@@ -208,9 +236,9 @@ void clientAIupdate(int mysocket, struct sockaddr_in server_addr) {
     dist = sqrt(dx * dx + dy * dy);
     aimAngle = clientAIobjectDirection(clientAItargetID);
     // Close in on a distant target, otherwise hold position (want zero velocity)
-    if (dist > AI_ENGAGE_RANGE) {
-      wantX = dx / dist * AI_CRUISE_SPEED;
-      wantY = dy / dist * AI_CRUISE_SPEED;
+    if (dist > aiEngageRange()) {
+      wantX = dx / dist * aiCruiseSpeed();
+      wantY = dy / dist * aiCruiseSpeed();
     }
   }
 
@@ -220,8 +248,8 @@ void clientAIupdate(int mysocket, struct sockaddr_in server_addr) {
     dx = aiWrapDelta(planet->xcoord, clientShip->xcoord, SPACE_MIN_XCOORD, SPACE_MAX_XCOORD);
     dy = aiWrapDelta(planet->ycoord, clientShip->ycoord, SPACE_MIN_YCOORD, SPACE_MAX_YCOORD);
     if (dx == 0.0 && dy == 0.0) dx = 1.0;
-    wantX = dx / sqrt(dx * dx + dy * dy) * AI_CRUISE_SPEED;
-    wantY = dy / sqrt(dx * dx + dy * dy) * AI_CRUISE_SPEED;
+    wantX = dx / sqrt(dx * dx + dy * dy) * aiCruiseSpeed();
+    wantY = dy / sqrt(dx * dx + dy * dy) * aiCruiseSpeed();
   }
 
   // Thrust is the only way to change velocity, so to reach the wanted
@@ -256,9 +284,9 @@ void clientAIupdate(int mysocket, struct sockaddr_in server_addr) {
   }
 
   // Fire whenever the gun lines up, even while maneuvering
-  if (target != NULL && dist < AI_FIRE_RANGE &&
+  if (target != NULL && dist < aiFireRange() &&
       now - aiLastShot >= P_GUI_SECONDS_PER_SHOT &&
-      clientShip->energy >= MISSILE_COST + AI_ENERGY_RESERVE) {
+      clientShip->energy >= CLIENT_OPTION(MISSILE_COST) + AI_ENERGY_RESERVE) {
     // Accept a miss angle that still puts the missile on the target's hull
     tolerance = atan2(P_GUI_SHIP_RADIUS_INTERNAL + P_GUI_SHOT_RADIUS_INTERNAL, dist);
     if (fabs(aiNormalizeAngle(aimAngle - clientShip->orientation - turn)) < tolerance) {

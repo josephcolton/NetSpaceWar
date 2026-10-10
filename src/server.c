@@ -161,6 +161,7 @@ void shandle_msg_request(int mysocket, void *packet, struct sockaddr_in client_a
   if (dtype == DATA_CLIENTINFO) ssend_msg_clientinfo(mysocket, client_addr);
   if (dtype == DATA_CLIENTLIST) ssend_msg_clientlist(mysocket, client_addr);
   if (dtype == DATA_SCORES) ssend_msg_scoreboard(mysocket, client_addr);
+  if (dtype == DATA_OPTIONS) ssend_msg_gameoptions(mysocket, client_addr);
 }
 
 void shandle_msg_clientupdate(int mysocket, void *packet, struct sockaddr_in client_addr) {
@@ -660,6 +661,38 @@ void ssend_msg_scoreboard(int mysocket, struct sockaddr_in client_addr) {
   // See if we got any errors
   if (bytes < 0) {
     printf("Error: unable to send msg_scoreboard: %d\n", netLastError());
+  }
+  free(packet);
+}
+
+void ssend_msg_gameoptions(int mysocket, struct sockaddr_in client_addr) {
+  int bytes;
+  int i;
+  struct msg_gameoptions *packet = NULL;
+  int packetSize = 0;
+
+  if (DEBUG) printf("Packet Created: ssend_msg_gameoptions\n");
+
+  // Determine packet size and create packet
+  packetSize = sizeof(struct msg_gameoptions) + sizeof(int32_t) * OPTION_COUNT;
+  packet = (struct msg_gameoptions *)calloc(1, packetSize);
+
+  // Populate the packet
+  packet->mtype = MSG_GAMEOPTIONS;
+  packet->obj_count = OPTION_COUNT;
+  for(i=0; i < OPTION_COUNT; i++) packet->values[i] = serverOptions[i];
+
+  // Send the packet
+  bytes = sendto(mysocket,
+		 (const char *)packet,
+		 packetSize,
+		 0,
+		 (struct sockaddr *)&client_addr,
+		 sizeof(client_addr));
+
+  // See if we got any errors
+  if (bytes < 0) {
+    printf("Error: unable to send msg_gameoptions: %d\n", netLastError());
   }
   free(packet);
 }

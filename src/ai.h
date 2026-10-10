@@ -6,11 +6,13 @@
 #include "cdata.h"
 
 /* AI tuning values, in internal units and seconds */
-#define AI_CRUISE_SPEED      8.0  // Speed used to close on a target, below SHIP_MAX_VELOCITY
+#define AI_CRUISE_FRACTION   0.8  // Fraction of the server's max speed used to close on a target
 #define AI_VELOCITY_SLOP     2.0  // Velocity error tolerated before correcting course
-#define AI_ENGAGE_RANGE      30.0 // Stop closing in and hold position inside this range
-#define AI_FIRE_RANGE        60.0 // Do not fire at targets farther than this
-#define AI_PLANET_DANGER     (P_GUI_DEFAULT_PLANET_SIZE + 15.0) // Steer away from planets inside this range
+#define AI_ENGAGE_RANGE      30.0 // Stop closing in and hold position inside this range...
+#define AI_ENGAGE_FRACTION   0.75 // ...or this fraction of the firing range, if that is closer
+#define AI_FIRE_RANGE        60.0 // Do not fire at targets farther than this...
+#define AI_MISSILE_REACH     0.9  // ...or this fraction of how far a missile flies in its life
+#define AI_PLANET_MARGIN     15.0 // Steer away from planets this far past their edge at default gravity
 #define AI_PLANET_LOOKAHEAD  3.0  // Seconds ahead to project our course when checking planets
 #define AI_THRUST_CONE       (M_PI / 8) // Only thrust when pointed within this angle of the wanted heading
 #define AI_TARGET_SWITCH     0.8  // Switch targets only if a new one is this fraction of the distance

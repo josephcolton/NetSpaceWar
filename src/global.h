@@ -81,6 +81,7 @@
 #define DATA_CLIENTINFO 1
 #define DATA_CLIENTLIST 2
 #define DATA_SCORES     3
+#define DATA_OPTIONS    4
 
 /* Define Message Types */
 #define MSG_LOGIN          0
@@ -98,6 +99,7 @@
 #define MSG_CLIENTUPDATE   12
 #define MSG_STATICOBJS     13
 #define MSG_DELETEOBJ      14
+#define MSG_GAMEOPTIONS    15
 
 /* Define Actions */
 #define ACTION_THRUST   0
@@ -306,6 +308,14 @@ struct msg_scoreboard {
   struct wireScore scores[]; // obj_count entries
 } packed;
 
+// The server's game rules, in options.h order. New options go on the end,
+// so a client reads the first obj_count it knows and keeps defaults for the rest.
+struct msg_gameoptions {
+  message_t mtype; /* = MSG_GAMEOPTIONS */
+  int32_t obj_count;
+  int32_t values[]; // obj_count entries
+} packed;
+
 struct msg_deleteobj {
   message_t mtype; /* = MSG_DELETEOBJ */
   data_t object_type;
@@ -357,5 +367,6 @@ _Static_assert(sizeof(struct msg_clientupdate) == 24, "msg_clientupdate wire siz
 _Static_assert(sizeof(struct msg_login) == 22, "msg_login wire size");
 _Static_assert(sizeof(struct wireScore) == 34, "wireScore wire size");
 _Static_assert(sizeof(struct msg_scoreboard) == 6, "msg_scoreboard wire size");
+_Static_assert(sizeof(struct msg_gameoptions) == 6, "msg_gameoptions wire size");
 
 #endif

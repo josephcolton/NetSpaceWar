@@ -16,6 +16,8 @@ int cdataCountMissiles;
 int cdataCountPlanets;
 struct wireScore cdataScores[MAX_COUNT_CLIENTS];
 int cdataCountScores;
+int cdataOptions[OPTION_COUNT];
+int cdataOptionsReceived;
 struct dataNodeClients *cdataArrayClients[MAX_COUNT_CLIENTS];
 struct dataNodeExplosions *cdataArrayExplosions[MAX_COUNT_EXPLOSIONS];
 struct dataNodeShips *cdataArrayShips[MAX_COUNT_SHIPS];
@@ -54,6 +56,10 @@ void cdataInitialize() {
   cdataCountMissiles = 0;
   cdataCountPlanets = 0;
   cdataCountScores = 0;
+
+  // Rules are the defaults until the server says otherwise
+  gameOptionsReset(cdataOptions);
+  cdataOptionsReceived = 0;
 
   // Initialize the checkin
   clientCheckin = 0;

@@ -24,6 +24,7 @@ void ssend_msg_updateobjects(int mysocket, struct sockaddr_in client_addr);
 void ssend_msg_explosion(int mysocket, struct sockaddr_in client_addr, double xcoord, double ycoord);
 void ssend_msg_clientlist(int mysocket, struct sockaddr_in client_addr);
 void ssend_msg_scoreboard(int mysocket, struct sockaddr_in client_addr);
+void ssend_msg_gameoptions(int mysocket, struct sockaddr_in client_addr);
 void ssend_msg_deleteobj(int mysocket, struct sockaddr_in client_addr, data_t object_type, object_t objectID);
 
 /* Broadcast Messages */
