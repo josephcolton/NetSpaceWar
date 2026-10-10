@@ -39,10 +39,33 @@ const char *serverClientName(object_t objectID) {
   return client ? client->username : "A player who left";
 }
 
+// A random place to put a ship where it has a fair chance: far enough from
+// planets to escape (inside their gravity is fine), clear of asteroids, and
+// not on top of another ship. After many failed tries the last spot is used.
+void serverSpawnPoint(object_t self, double *xcoord, double *ycoord) {
+  int tries, i, clear;
+  for (tries=0; tries < 100; tries++) {
+    *xcoord = SPACE_MIN_XCOORD + randUnit() * (SPACE_MAX_XCOORD - SPACE_MIN_XCOORD);
+    *ycoord = SPACE_MIN_YCOORD + randUnit() * (SPACE_MAX_YCOORD - SPACE_MIN_YCOORD);
+    clear = 1;
+    for (i=0; i < sdataCountPlanets && clear; i++) {
+      if (inRange(*xcoord, *ycoord, sdataArrayPlanets[i]->xcoord, sdataArrayPlanets[i]->ycoord, SPAWN_PLANET_DISTANCE)) clear = 0;
+    }
+    for (i=0; i < sdataCountAsteroids && clear; i++) {
+      if (inRange(*xcoord, *ycoord, sdataArrayAsteroids[i]->xcoord, sdataArrayAsteroids[i]->ycoord, SPAWN_ASTEROID_DISTANCE)) clear = 0;
+    }
+    for (i=0; i < sdataCountShips && clear; i++) {
+      if (sdataArrayShips[i] == NULL || sdataArrayShips[i]->status == 0 || sdataArrayShips[i]->objectID == self) continue;
+      if (inRange(*xcoord, *ycoord, sdataArrayShips[i]->xcoord, sdataArrayShips[i]->ycoord, SPAWN_SHIP_DISTANCE)) clear = 0;
+    }
+    if (clear) return;
+  }
+}
+
 // Initialize the server
 void serverInitialize() {
   double xcoord, ycoord;
-  int i;
+  int i, j, tries;
   if (VERBOSE) printf("Initializing Server\n");
 
   // Seed the randomizer
@@ -54,8 +77,15 @@ void serverInitialize() {
   // Once the data has been initialized, we need to create
   // the map.
   for (i=0; i < SERVER_OPTION(PLANETS); i++) {
-    xcoord = randRange(SPACE_MIN_XCOORD, SPACE_MAX_XCOORD);
-    ycoord = randRange(SPACE_MIN_YCOORD, SPACE_MAX_YCOORD);
+    // Keep planets apart, so they don't overlap or trap ships between them
+    for (tries=0; tries < 100; tries++) {
+      xcoord = randRange(SPACE_MIN_XCOORD, SPACE_MAX_XCOORD);
+      ycoord = randRange(SPACE_MIN_YCOORD, SPACE_MAX_YCOORD);
+      for (j=0; j < sdataCountPlanets; j++) {
+	if (inRange(xcoord, ycoord, sdataArrayPlanets[j]->xcoord, sdataArrayPlanets[j]->ycoord, PLANET_SPACING)) break;
+      }
+      if (j == sdataCountPlanets) break;
+    }
     sdataCreatePlanet(sdataNewObjectID(), xcoord, ycoord);
   }
   volcanoInitialize();
@@ -150,8 +180,7 @@ void shandle_msg_login(int mysocket, void *packet, struct sockaddr_in client_add
   }
 
   // Create a ship to go with the client
-  xcoord = randRange(SPACE_MIN_XCOORD, SPACE_MAX_XCOORD);
-  ycoord = randRange(SPACE_MIN_YCOORD, SPACE_MAX_YCOORD);
+  serverSpawnPoint(objectID, &xcoord, &ycoord);
   sdataCreateShip(objectID, xcoord, ycoord);
 
   // Notify the client of their objectID
@@ -304,9 +333,10 @@ void shandle_msg_clientupdate(int mysocket, void *packet, struct sockaddr_in cli
   if (action == ACTION_JUMP) {
     if (clientShip->energy >= SERVER_OPTION(JUMP_COST) || clientShip->status == 0)
     {
-      // Put the ship in a new location
-      clientShip->xcoord = randRange(SPACE_MIN_XCOORD, SPACE_MAX_XCOORD);
-      clientShip->ycoord = randRange(SPACE_MIN_XCOORD, SPACE_MAX_XCOORD);
+      // Put the ship in a new location, somewhere it has a chance
+      serverSpawnPoint(objectID, &xcoord, &ycoord);
+      clientShip->xcoord = xcoord;
+      clientShip->ycoord = ycoord;
       // Stop the ship from moving
       clientShip->xVelocity = 0.0;
       clientShip->yVelocity = 0.0;

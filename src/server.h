@@ -26,6 +26,8 @@ void serverClientLeaving(object_t objectID);
 
 /* Server Initialization, misc */
 void serverInitialize();
+// Where to put a ship joining, respawning or hyperjumping (self: its own objectID)
+void serverSpawnPoint(object_t self, double *xcoord, double *ycoord);
 void checkClientKeepAlive();
 
 /* Server Handling Messages */

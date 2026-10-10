@@ -79,6 +79,11 @@ static inline int versionCompatible(const char *version) {
 #define GRAVITY          100
 #define PLANETS          2
 #define GRAVITY_RANGE    (P_GUI_DEFAULT_PLANET_SIZE * P_GUI_DEFAULT_PLANET_SIZE * 2) // Planets pull within this distance
+#define PLANET_SPACING   25.0 // Least distance between planet centers
+/* Ships appear (join, respawn, hyperjump) at least this far from... */
+#define SPAWN_PLANET_DISTANCE   15.0 // ...a planet's center: 10 past its surface, room to escape its gravity
+#define SPAWN_ASTEROID_DISTANCE 12.0 // ...an asteroid's center
+#define SPAWN_SHIP_DISTANCE     15.0 // ...another live ship
 
 /* Volcanoes and the recharge orbs they shoot out */
 #define VOLCANOES        1    // Planets that start with a volcano
