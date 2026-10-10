@@ -43,6 +43,21 @@
 #define USERNAME_MAX     20
 #define VERSION_MAX      16 // Longest game version string, with its terminator
 #define VERSION_OLDEST   "1.0.0" // Sent no version: the only release before the check
+
+// The major.minor part of a version ("1.2.3" gives 1002)
+static inline int versionSeries(const char *version) {
+  const char *dot = strchr(version, '.');
+  return atoi(version) * 1000 + (dot ? atoi(dot + 1) : 0);
+}
+
+// Can a player or server with this version play with us? The major and
+// minor versions (the first two numbers) have to match, so patch versions
+// play together and the protocol may only change with a minor or major
+// version. 1.0.0 sent no version (an empty string, since receive buffers
+// are zeroed), so it never can.
+static inline int versionCompatible(const char *version) {
+  return version[0] != 0 && versionSeries(version) == versionSeries(NSW_VERSION);
+}
 #define LEN              100
 #define SPACE_MIN_XCOORD -100.0
 #define SPACE_MAX_XCOORD 100.0

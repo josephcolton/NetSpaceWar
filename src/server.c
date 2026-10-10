@@ -89,6 +89,7 @@ void shandle_msg_login(int mysocket, void *packet, struct sockaddr_in client_add
   object_t objectID;
   char username[USERNAME_MAX];
   char version[VERSION_MAX];
+  int compatible;
   double xcoord, ycoord;
 
   if (VERBOSE) printf("Packet Received: shandle_msg_login\n");
@@ -103,12 +104,12 @@ void shandle_msg_login(int mysocket, void *packet, struct sockaddr_in client_add
   username[USERNAME_MAX - 1] = 0; // The packet's copy may not be terminated
   if (VERBOSE) printf("  packet->username = '%s'\n", username);
 
-  // Everyone must run the same version. 1.0.0 clients send no version
-  // (the receive buffer is zeroed, so it reads as empty).
+  // Players need the same major version (see versionCompatible())
   strncpy(version, ((struct msg_login *)packet)->version, VERSION_MAX);
   version[VERSION_MAX - 1] = 0;
+  compatible = versionCompatible(version);
   if (version[0] == 0) strcpy(version, VERSION_OLDEST);
-  if (strcmp(version, NSW_VERSION) != 0) {
+  if (!compatible) {
     serverLog("%s could not join: they have version %s, the server has %s", username, version, NSW_VERSION);
     ssend_msg_loginack(mysocket, client_addr, STATUS_VERSION, 0);
     return;

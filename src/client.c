@@ -16,6 +16,7 @@ void chandle_msg_loginack(int mysocket, void *packet, struct sockaddr_in server_
   status_t status;
   object_t objectID;
   char version[VERSION_MAX];
+  int compatible;
 
   if (DEBUG) printf("Packet Received: chandle_msg_loginack\n");
 
@@ -26,9 +27,11 @@ void chandle_msg_loginack(int mysocket, void *packet, struct sockaddr_in server_
   // Get the other variables
   status = ((struct msg_loginack *)packet)->status;
   objectID = ((struct msg_loginack *)packet)->objectID;
-  // A 1.0.0 server sends no version (the receive buffer is zeroed)
+  // The server needs our major version (see versionCompatible()). A 1.0.0
+  // server sends no version, and lets anyone in.
   strncpy(version, ((struct msg_loginack *)packet)->version, VERSION_MAX);
   version[VERSION_MAX - 1] = 0;
+  compatible = versionCompatible(version);
   if (version[0] == 0) strcpy(version, VERSION_OLDEST);
 
   // Packet contents
@@ -56,8 +59,8 @@ void chandle_msg_loginack(int mysocket, void *packet, struct sockaddr_in server_
     return;
   }
   // Refused by a newer server, or let in by a 1.0.0 one that doesn't check
-  if (status == STATUS_VERSION || strcmp(version, NSW_VERSION) != 0) {
-    snprintf(clientStatusMessage, LEN, "The server has version %s and you have %s; they must match",
+  if (status == STATUS_VERSION || !compatible) {
+    snprintf(clientStatusMessage, LEN, "The server has version %s and you have %s; they can't play together",
              version, NSW_VERSION);
     printf("%s\n", clientStatusMessage);
     if (status == STATUS_OKAY) csend_msg_logout(mysocket, server_addr); // Free our slot

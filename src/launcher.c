@@ -543,7 +543,7 @@ static void launcherDrawAbout() {
   snprintf(text, LEN, "NetSpaceWar %s", NSW_VERSION);
   gui_text_centered(90, 2.0f, 0xffffff, text);
   gui_text_centered(116, 1.0f, COLOR_TEXT, "A multiplayer network clone of Spacewar!");
-  gui_text_centered(132, 1.0f, COLOR_DIM, "Everyone in a game must have the same version.");
+  gui_text_centered(132, 1.0f, COLOR_DIM, "Players need the same first two version numbers.");
   gui_text_centered(156, 1.0f, COLOR_TEXT, "github.com/josephcolton/NetSpaceWar");
   gui_text_centered(172, 1.0f, COLOR_DIM, "Free software under the GNU General Public License v3");
 
