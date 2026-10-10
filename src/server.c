@@ -6,6 +6,18 @@
 #include "asteroids.h"
 
 int serverLogLevel = LOG_EVENTS;
+char serverHostName[USERNAME_MAX];
+int serverHostJoined;
+int serverShutdown;
+
+void serverClientLeaving(object_t objectID) {
+  struct dataNodeClients *client = sdataLookupClient(objectID);
+  if (client == NULL || serverHostName[0] == 0) return;
+  if (strcmp(client->username, serverHostName) == 0) {
+    serverLog("The host left, so the server is shutting down");
+    serverShutdown = 1;
+  }
+}
 
 void serverLog(const char *format, ...) {
   va_list args;
@@ -62,6 +74,7 @@ void checkClientKeepAlive() {
       // Tell the client to log out
       ssend_msg_logoutack(serverSocket, *(sdataArrayClients[i]->client_addr));
       // Delete the client node
+      serverClientLeaving(sdataArrayClients[i]->objectID);
       sdataDeleteClient(sdataArrayClients[i]->objectID);
       // Repeat the same client index, incase there are more.
       i--;
@@ -142,6 +155,7 @@ void shandle_msg_login(int mysocket, void *packet, struct sockaddr_in client_add
 
   // Notify the client of their objectID
   ssend_msg_loginack(mysocket, client_addr, STATUS_OKAY, objectID);
+  if (serverHostName[0] && strcmp(username, serverHostName) == 0) serverHostJoined = 1;
   serverLog("%s joined from %s:%d", username, inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 }
 
@@ -164,6 +178,7 @@ void shandle_msg_logout(int mysocket, void *packet, struct sockaddr_in client_ad
   // Delete the client node
   objectID = sdataGetClientIDbyAddress(client_addr);
   if (objectID > 0) serverLog("%s left", serverClientName(objectID));
+  serverClientLeaving(objectID);
   sdataDeleteClient(objectID);
 }
 

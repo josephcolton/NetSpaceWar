@@ -14,6 +14,16 @@ void serverLog(const char *format, ...);
 // A client's username for messages; they may already have left
 const char *serverClientName(object_t objectID);
 
+/* A server started by a player's game (--host-player NAME) shuts down when
+   that player leaves, or if they haven't joined after HOST_JOIN_TIMEOUT
+   seconds, so it can't outlive a crashed game. */
+#define HOST_JOIN_TIMEOUT 30
+extern char serverHostName[USERNAME_MAX]; // Empty for a standalone server
+extern int serverHostJoined;
+extern int serverShutdown;                // Set when the main loop should end
+// Call before deleting a client who is leaving
+void serverClientLeaving(object_t objectID);
+
 /* Server Initialization, misc */
 void serverInitialize();
 void checkClientKeepAlive();

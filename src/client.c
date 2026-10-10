@@ -103,8 +103,10 @@ void chandle_msg_logoutack(int mysocket, void *packet, struct sockaddr_in server
   mtype = ((struct msg_logoutack *)packet)->mtype;
   if (mtype != MSG_LOGOUTACK) return;
 
-  // This packet indicates that the server has closed the connection.
-  printf("  Shutting Down\n");
+  // This packet indicates that the server has closed the connection: it is
+  // shutting down (the host left) or stopped hearing from us
+  snprintf(clientStatusMessage, LEN, "The server ended the game");
+  printf("%s\n", clientStatusMessage);
   clientAlive = 0;
 }
 

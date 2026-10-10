@@ -71,6 +71,7 @@ int main(int argc, char **argv) {
   // Keep track of time
   struct timeval timeout;
   int timeLeft = SERVER_TIMEOUT;
+  double startTime;
   int i, n;
 
   // File Descriptors for the select command
@@ -80,6 +81,9 @@ int main(int argc, char **argv) {
   for (i=3, n=3; i < argc; i++) {
     if (strcmp(argv[i], "--verbose") == 0) serverLogLevel = LOG_VERBOSE;
     else if (strcmp(argv[i], "--silent") == 0) serverLogLevel = LOG_SILENT;
+    else if (strcmp(argv[i], "--host-player") == 0 && i + 1 < argc) {
+      strncpy(serverHostName, argv[++i], USERNAME_MAX - 1);
+    }
     else argv[n++] = argv[i];
   }
   if (argc > 3) argc = n;
@@ -87,10 +91,12 @@ int main(int argc, char **argv) {
   // Game rules: the defaults, then any --option value pairs after the port
   gameOptionsReset(serverOptions);
   if (argc < 3 || !gameOptionsParse(argc, argv, 3, serverOptions)) {
-    printf("Usage:\n\t%s address port [--verbose | --silent] [--option value ...]\n\n", argv[0]);
+    printf("Usage:\n\t%s address port [--verbose | --silent] [--host-player name] [--option value ...]\n\n", argv[0]);
     printf("Use 0.0.0.0 as the address to accept players on every network interface.\n");
     printf("Normally the server reports joins, leaves, deaths and respawns. --verbose\n");
-    printf("also prints every packet; --silent prints nothing.\n\n");
+    printf("also prints every packet; --silent prints nothing.\n");
+    printf("--host-player is used by the game's Host menu: the server shuts down when\n");
+    printf("that player leaves, or if they haven't joined after %d seconds.\n\n", HOST_JOIN_TIMEOUT);
     gameOptionsUsage();
     return argc < 3 ? 0 : 1;
   }
@@ -151,7 +157,8 @@ int main(int argc, char **argv) {
     if (serverOptions[i] != gameOptions[i].defaultValue) serverLog("Rule: %s %s", gameOptions[i].label, gameOptionText(i, serverOptions[i]));
   }
 
-  while(1) {
+  startTime = platformNow();
+  while(!serverShutdown) {
     fflush(stdout);
     // Add mysocket socket file descriptor to select set
     FD_ZERO (&readfds); // initialize set
@@ -179,6 +186,11 @@ int main(int argc, char **argv) {
       // Do the following everytime anything happens
       // Check client live status
       checkClientKeepAlive();
+      // A host's game that never connects has crashed or given up
+      if (serverHostName[0] && !serverHostJoined && platformNow() - startTime > HOST_JOIN_TIMEOUT) {
+	serverLog("The host never joined, so the server is shutting down");
+	serverShutdown = 1;
+      }
       // sdata update
       sdataUpdateAll();
       // Update physics
@@ -203,5 +215,10 @@ int main(int argc, char **argv) {
 
   }
 
+  // Shutting down: tell anyone still playing (bots then exit right away)
+  for (i=0; i < sdataCountClients; i++) {
+    ssend_msg_logoutack(serverSocket, *(sdataArrayClients[i]->client_addr));
+  }
+  netCloseSocket(serverSocket);
   return 0;
 }
