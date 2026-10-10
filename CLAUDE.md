@@ -23,9 +23,27 @@ cmake -S . -B build -DNSW_BUILD_CLIENT=OFF   # server + AI only
 - `OS_<CMAKE_SYSTEM_NAME>` (e.g. `OS_Linux`) is defined for the `#ifdef` blocks in the clients.
 - **Windows**: `cmake/mingw-w64-x86_64.cmake` cross-compiles from Linux (needs `x86_64-w64-mingw32-*` on PATH, from distro `mingw-w64` or llvm-mingw). Builds are static, so the `.exe` files need only system DLLs.
 - **Native Windows** (Strawberry Perl's MinGW gcc 13 + Ninja): `cmake -S . -B build-win -G Ninja -DCMAKE_C_COMPILER=gcc` with `C:\Strawberry\c\bin` first on PATH (ahead of `C:\msys64`). Verified working: server + bots, the game client, the launcher's host flow (spawns and kills server/bots), and window-close logout. The first time a host listens on 0.0.0.0, Windows Firewall asks about `SpaceWarServer.exe`.
-- **Windows release/installer**: `cmake --workflow --preset windows-release` (`CMakePresets.json`) configures, builds and runs CPack's `INNOSETUP` generator in `build-release/`, producing `NetSpaceWar-<version>-setup.exe`. It needs Inno Setup 6, and `find_program` looks for `ISCC` in its default install folders. The version comes from `project(VERSION)` and also goes into `res/netspacewar.rc.in`, the icon and version resource linked into `NetSpaceWar.exe` (SDL uses the exe's first icon for the window). Installer extras such as the firewall task and finish-page text are in `res/installer.iss`, which CPack `#include`s. Never change `CPACK_INNOSETUP_SETUP_AppId`, because upgrades depend on it. `res/make_icon.py` regenerates the icon. Without Inno Setup, the generated script can still be checked by passing a stub `-D CPACK_INNOSETUP_EXECUTABLE=` to `cpack` and reading `build-release/_CPack_Packages/win64/INNOSETUP/ISScript.iss`.
+- **Windows installer**: see Releasing below.
 - Globals live in the `.c` files and are declared `extern` in the headers. Keep it that way: defining them in headers breaks the link under GCC ≥ 10 (`-fno-common`).
 - There are no tests or linters. To smoke-test, run `./SpaceWarServer localhost <port>` and two `./SpaceWarAI localhost <port> botN` from `build/`. The server prints joins, leaves, deaths and respawns; add `--verbose` to see every packet (roughly 20 player/missile updates per second per client). The bots print every packet because of `DEBUG`.
+
+## Releasing
+
+Releases are Windows installers published as GitHub releases (`josephcolton/NetSpaceWar`, first one `v1.0.0`). The README's Download section links to `/releases/latest`, so it needs no edit per release.
+
+1. Bump `project(VERSION ...)` in `CMakeLists.txt` and commit on `main`.
+2. `cmake --workflow --preset windows-release` (`CMakePresets.json`, Strawberry's `C:\Strawberry\c\bin` first on PATH) configures, builds and runs CPack's `INNOSETUP` generator in `build-release/`, producing `build-release/NetSpaceWar-<version>-setup.exe`.
+3. Tag and publish: `git tag -a vX.Y.Z -m "NetSpaceWar X.Y.Z"`, `git push origin vX.Y.Z`, then `gh release create vX.Y.Z build-release/NetSpaceWar-X.Y.Z-setup.exe --title "NetSpaceWar X.Y.Z" --notes-file <notes> --verify-tag`. Releases are normal (not pre-release); the owner makes a follow-up release if something is wrong.
+
+Tools on this machine: Inno Setup 6 is installed per-user in `%LOCALAPPDATA%\Programs\Inno Setup 6`, where `find_program(NSW_ISCC)` finds it. The GitHub CLI is a portable copy at `%LOCALAPPDATA%\Programs\GitHub CLI\bin\gh.exe` and is **not on PATH**, so call it by full path. It is logged in as `josephcolton`. winget is broken here (source error 0x8a15000f), so download tools directly from their official releases instead.
+
+Installer details:
+- The version from `project(VERSION)` also goes into `res/netspacewar.rc.in`, the icon and version resource linked into `NetSpaceWar.exe`. SDL uses the exe's first icon for the window.
+- Installer extras (the firewall rule task and its removal on uninstall, plus finish-page text explaining taskbar pinning, which installers can't do) are in `res/installer.iss`, which CPack `#include`s at the top of its generated script. The other installer settings are the `CPACK_*` variables at the end of `CMakeLists.txt`.
+- Never change `CPACK_INNOSETUP_SETUP_AppId`, because upgrades depend on it.
+- `res/make_icon.py` (standard library only) regenerates `res/netspacewar.ico` and `.png`.
+- The installer isn't code-signed; the owner accepts the SmartScreen "Run anyway" step.
+- The generated script is `build-release/_CPack_Packages/win64/INNOSETUP/ISScript.iss`. Run `ISCC` on it directly to see compiler warnings, which CPack hides.
 
 ## Run
 
