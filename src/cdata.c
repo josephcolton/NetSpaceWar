@@ -198,7 +198,7 @@ int cdataCreateMissile(object_t objectID, double xcoord, double ycoord, double o
   newNode->orientation = orientation;
   newNode->xVelocity = xVelocity;
   newNode->yVelocity = yVelocity;
-  newNode->ttl = time(NULL) + MISSILE_TTL;
+  newNode->ttl = time(NULL) + CLIENT_MISSILE_STALE;
 
   // Increment the count
   cdataCountMissiles++;

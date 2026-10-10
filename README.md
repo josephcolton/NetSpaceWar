@@ -47,6 +47,7 @@ Building natively on Windows with MSVC should also work through CMake, but it ha
 Run `NetSpaceWar` (on Windows, double-click `NetSpaceWar.exe`).
 
 - **Host Game** starts a game on your computer. Choose your name, a port, and how many AI bots to add (up to 4; a game holds 5 ships). The screen shows the address other players can use to join. On Windows, allow the firewall prompt so they can reach you.
+  - **Game Settings** changes the rules for games you host: number of planets, gravity, missile life, top speed, crash and missile damage, and the energy cost of shots and hyperjumps. Changed values are highlighted, and **Reset to Defaults** puts them all back.
 - **Join Game** connects to someone else's game by address and port.
 
 Press Escape during a game to return to the menu. Your choices are remembered for next time.
@@ -57,9 +58,12 @@ The programs also run on their own, for example to keep a dedicated server runni
 
 ```sh
 ./SpaceWarServer 0.0.0.0 27960                 # listen on every network interface
+./SpaceWarServer 0.0.0.0 27960 --planets 4 --gravity 150   # change the rules
 ./SpaceWarAI     <server> <port> <name>         # add a bot
 ./NetSpaceWar    <server> <port> <name>         # join directly, skipping the menu
 ```
+
+Run `SpaceWarServer` with no arguments to list every rule option with its range and default.
 
 The AI hunts the nearest ship, leads its shots, steers clear of planets, and moves power between shields and energy. It plays under the same turn, thrust and fire limits as a human.
 

@@ -114,7 +114,7 @@ double xcoordTowards(double x1, double y1, double x2, double y2) {
   if (yDist > SPACE_MAX_YCOORD) yDist -= (SPACE_MAX_YCOORD - SPACE_MIN_YCOORD);
 
   double distSquare = (xDist * xDist) + (yDist * yDist);
-  return xDist / distSquare * PHYS_SECS_PER_UPDATE * GRAVITY;
+  return xDist / distSquare * PHYS_SECS_PER_UPDATE * SERVER_OPTION(GRAVITY);
 }
 
 double ycoordTowards(double x1, double y1, double x2, double y2) {
@@ -127,7 +127,7 @@ double ycoordTowards(double x1, double y1, double x2, double y2) {
   if (yDist > SPACE_MAX_YCOORD) yDist -= (SPACE_MAX_YCOORD - SPACE_MIN_YCOORD);
 
   double distSquare = (xDist * xDist) + (yDist * yDist);
-  return yDist / distSquare * PHYS_SECS_PER_UPDATE * GRAVITY;
+  return yDist / distSquare * PHYS_SECS_PER_UPDATE * SERVER_OPTION(GRAVITY);
 }
 
 int inRange(double x1, double y1, double x2, double y2, double range) {
@@ -167,7 +167,7 @@ void physicsUpdateCollisions() {
       y2 = sdataArrayPlanets[j]->ycoord;
       if (inRange(x1, y1, x2, y2, range)) {
 	// Take a bit of damage
-	sdataArrayShips[i]->shields -= (COLLISION_DMG * 5);
+	sdataArrayShips[i]->shields -= (SERVER_OPTION(CRASH_DMG) * 5);
 	if (sdataArrayShips[i]->shields>=0)
 	{
 	  // The ship is in range of the planet, so switch direction
@@ -200,8 +200,8 @@ void physicsUpdateCollisions() {
       y2 = sdataArrayShips[j]->ycoord;
       if (inRange(x1, y1, x2, y2, range)) {
 	// Both take a bit of damage
-	sdataArrayShips[i]->shields -= COLLISION_DMG;
-	sdataArrayShips[j]->shields -= COLLISION_DMG;
+	sdataArrayShips[i]->shields -= SERVER_OPTION(CRASH_DMG);
+	sdataArrayShips[j]->shields -= SERVER_OPTION(CRASH_DMG);
 	// Trade directions
 	xTemp = sdataArrayShips[i]->xVelocity;
 	yTemp = sdataArrayShips[i]->yVelocity;
@@ -238,7 +238,7 @@ void physicsUpdateCollisions() {
       y2 = sdataArrayMissiles[j]->ycoord;
       if (inRange(x1, y1, x2, y2, range)) {
 	// Take missile damage
-	sdataArrayShips[i]->shields -= COLLISION_EXP;
+	sdataArrayShips[i]->shields -= SERVER_OPTION(MISSILE_DMG);
 	// Missile owner gets points, but not for hitting themselves
 	if (sdataArrayMissiles[j]->owner != sdataArrayShips[i]->objectID) {
 	  if (sdataArrayShips[i]->shields < 0) {

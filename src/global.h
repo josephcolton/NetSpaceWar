@@ -46,6 +46,7 @@
 #define SHIP_REST_SHIELD 1
 #define KEEPALIVE_LIMIT  5
 #define MISSILE_TTL      15
+#define CLIENT_MISSILE_STALE 3 // Seconds a client keeps a missile the server has stopped sending
 #define COLLISION_DMG    10
 #define COLLISION_EXP    25
 #define MISSILE_COST     2

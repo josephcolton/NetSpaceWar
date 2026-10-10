@@ -75,9 +75,12 @@ int main(int argc, char **argv) {
   // File Descriptors for the select command
   fd_set readfds; // file descriptor set
 
-  if (argc != 3) {
-    printf("Usage:\n\t%s address port\n\nUse 0.0.0.0 as the address to accept players on every network interface.\n\n", argv[0]);
-    return 0;
+  // Game rules: the defaults, then any --option value pairs after the port
+  gameOptionsReset(serverOptions);
+  if (argc < 3 || !gameOptionsParse(argc, argv, 3, serverOptions)) {
+    printf("Usage:\n\t%s address port [--option value ...]\n\nUse 0.0.0.0 as the address to accept players on every network interface.\n\n", argv[0]);
+    gameOptionsUsage();
+    return argc < 3 ? 0 : 1;
   }
 
   // Start the socket library (needed on Windows before any network call)

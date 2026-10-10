@@ -4,6 +4,7 @@
 
 /* Global variable definitions (declared extern in sdata.h) */
 int serverSocket;
+int serverOptions[OPTION_COUNT];
 object_t sdataNextObjectID;
 int sdataCountClients;
 int sdataCountExplosions;
@@ -242,7 +243,7 @@ int sdataCreateMissile(object_t objectID, double xcoord, double ycoord, double o
   newNode->xVelocity = xVelocity;
   newNode->yVelocity = yVelocity;
   newNode->owner = owner;
-  newNode->ttl = time(NULL) + MISSILE_TTL;
+  newNode->ttl = time(NULL) + SERVER_OPTION(MISSILE_TTL);
 
   // Increment the count
   sdataCountMissiles++;

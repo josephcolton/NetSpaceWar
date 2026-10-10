@@ -26,7 +26,8 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 find_library(MATH_LIB m)
 
 # Server: no external dependencies
-add_executable(SpaceWarServer src/SpaceWarServer.c src/server.c src/sdata.c src/physics.c src/platform.c)
+add_executable(SpaceWarServer src/SpaceWarServer.c src/server.c src/sdata.c src/physics.c src/options.c
+               src/platform.c)
 
 # AI client: headless, no external dependencies
 add_executable(SpaceWarAI src/SpaceWarAI.c src/ai.c src/client.c src/cdata.c src/platform.c)
@@ -49,7 +50,7 @@ if(NSW_BUILD_CLIENT)
 
   if(TARGET SDL3::SDL3)
     add_executable(NetSpaceWar src/NetSpaceWar.c src/launcher.c src/game.c src/client.c src/cdata.c
-                   src/gui.c src/platform.c)
+                   src/gui.c src/options.c src/platform.c)
     target_link_libraries(NetSpaceWar PRIVATE SDL3::SDL3)
     # A windowed program on Windows: no console window when double-clicked
     set_target_properties(NetSpaceWar PROPERTIES WIN32_EXECUTABLE TRUE)

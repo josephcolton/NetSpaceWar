@@ -16,7 +16,7 @@ void serverInitialize() {
 
   // Once the data has been initialized, we need to create
   // the map.
-  for (i=0; i < PLANETS; i++) {
+  for (i=0; i < SERVER_OPTION(PLANETS); i++) {
     xcoord = randRange(SPACE_MIN_XCOORD, SPACE_MAX_XCOORD);
     ycoord = randRange(SPACE_MIN_YCOORD, SPACE_MAX_YCOORD);
     sdataCreatePlanet(sdataNewObjectID(), xcoord, ycoord);
@@ -177,6 +177,7 @@ void shandle_msg_clientupdate(int mysocket, void *packet, struct sockaddr_in cli
   double ycoord;
   double xVelocity;
   double yVelocity;
+  double speed;
 
   if (DEBUG) printf("Packet Received: shandle_msg_clientupdate\n");
 
@@ -218,19 +219,19 @@ void shandle_msg_clientupdate(int mysocket, void *packet, struct sockaddr_in cli
     //    clientShip->energy-=var1*THRUST_COST;
 
 
-    // Calculate the xVelocity and yVelocity based on current values
-    // and the orientation of the ship.
-    if (clientShip->xVelocity*clientShip->xVelocity+clientShip->yVelocity*clientShip->xVelocity>SHIP_MAX_VELOCITY*SHIP_MAX_VELOCITY)
-    {
-      // If the client is going too fast slow it down?
+    // Thrust cannot push the ship past the speed limit
+    speed = sqrt(clientShip->xVelocity*clientShip->xVelocity + clientShip->yVelocity*clientShip->yVelocity);
+    if (speed > SERVER_OPTION(MAX_VELOCITY)) {
+      clientShip->xVelocity *= SERVER_OPTION(MAX_VELOCITY) / speed;
+      clientShip->yVelocity *= SERVER_OPTION(MAX_VELOCITY) / speed;
     }
 
   }
   
   if (action == ACTION_FIRE) {
     // Verify that the ship has the energy
-    if (clientShip->energy < MISSILE_COST) return;
-    clientShip->energy -= MISSILE_COST;
+    if (clientShip->energy < SERVER_OPTION(MISSILE_COST)) return;
+    clientShip->energy -= SERVER_OPTION(MISSILE_COST);
 
     // Create the missile  
     newObjectID = sdataNewObjectID();
@@ -243,7 +244,7 @@ void shandle_msg_clientupdate(int mysocket, void *packet, struct sockaddr_in cli
   }
 
   if (action == ACTION_JUMP) {
-    if (clientShip->energy >= JUMP_COST || clientShip->status == 0)
+    if (clientShip->energy >= SERVER_OPTION(JUMP_COST) || clientShip->status == 0)
     {
       // Put the ship in a new location
       clientShip->xcoord = randRange(SPACE_MIN_XCOORD, SPACE_MAX_XCOORD);
@@ -252,7 +253,7 @@ void shandle_msg_clientupdate(int mysocket, void *packet, struct sockaddr_in cli
       clientShip->xVelocity = 0.0;
       clientShip->yVelocity = 0.0;
       // Use the energy cost
-      clientShip->energy -= JUMP_COST;
+      clientShip->energy -= SERVER_OPTION(JUMP_COST);
     }    
 
     // if the ship is dead, we need to bring it back to life

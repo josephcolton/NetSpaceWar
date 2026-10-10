@@ -2,9 +2,12 @@
 #define SDATA_H
 
 #include "global.h"
+#include "options.h"
 
 // Global variables
 extern int serverSocket;
+extern int serverOptions[OPTION_COUNT];  // This game's rules, from the command line
+#define SERVER_OPTION(x) (serverOptions[OPTION_##x])
 extern object_t sdataNextObjectID;
 extern int sdataCountClients;
 extern int sdataCountExplosions;

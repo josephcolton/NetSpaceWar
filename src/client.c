@@ -293,6 +293,7 @@ void chandle_msg_updatemissiles(int mysocket, void *packet, struct sockaddr_in s
     }
     // Update the ship information
     if (updateMissile != NULL) {
+      updateMissile->ttl = time(NULL) + CLIENT_MISSILE_STALE;
       updateMissile->xcoord = xcoord;
       updateMissile->ycoord = ycoord;
       updateMissile->orientation = orientation;
