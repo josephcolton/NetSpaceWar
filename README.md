@@ -110,6 +110,7 @@ The AI hunts the nearest ship, leads its shots, steers clear of planets, moves p
 | X | Move shields to energy |
 | S (hold) | Show the scoreboard and the game rules |
 | M | Turn sound and music off and on |
+| F11 | Fullscreen on and off (also in the menus) |
 | Escape | Leave the game |
 
 A gamepad works too, plugged in before or during a game:

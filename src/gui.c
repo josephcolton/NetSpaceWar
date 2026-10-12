@@ -487,6 +487,7 @@ int gui_get_input(double *angle_change, double *accel_amount, int *energy_to_shi
 		gui_gamepad_event(&event);
 		// M turns all sound and music off and on
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_M && !event.key.repeat) audioToggleMute();
+		if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F11 && !event.key.repeat) gui_toggle_fullscreen();
 	}
 
 	// How long has it been since we were last called?
@@ -592,6 +593,7 @@ int gui_get_input(double *angle_change, double *accel_amount, int *energy_to_shi
 
 
 static int gui_window_mode = GUI_WINDOW_NORMAL;
+static int gui_last_window_mode = GUI_WINDOW_NORMAL; // F11 out of fullscreen goes back to this
 
 static void gui_apply_window_mode()
 {
@@ -600,15 +602,17 @@ static void gui_apply_window_mode()
 	SDL_DisplayID display;
 
 	if (gui_window == NULL) return;
-	if (gui_window_mode == GUI_WINDOW_NORMAL) {
+	if (gui_window_mode != GUI_WINDOW_FULLSCREEN) {
 		SDL_SetWindowFullscreen(gui_window, false);
+		if (gui_window_mode == GUI_WINDOW_MAXIMIZED) SDL_MaximizeWindow(gui_window);
+		else SDL_RestoreWindow(gui_window);
 		return;
 	}
-	// A NULL mode is fullscreen windowed. Exclusive needs a real display mode,
-	// so use the one nearest the desktop's (the same size, without the compositor).
+	// Exclusive fullscreen needs a real display mode, so use the one nearest
+	// the desktop's; NULL (borderless) is the fallback.
 	display = SDL_GetDisplayForWindow(gui_window);
 	desktop = SDL_GetDesktopDisplayMode(display);
-	if (gui_window_mode == GUI_WINDOW_FULLSCREEN && desktop != NULL &&
+	if (desktop != NULL &&
 	    SDL_GetClosestFullscreenDisplayMode(display, desktop->w, desktop->h, desktop->refresh_rate, false, &mode)) {
 		SDL_SetWindowFullscreenMode(gui_window, &mode);
 	} else {
@@ -621,8 +625,19 @@ void gui_set_window_mode(int mode)
 {
 	if (mode < 0 || mode >= GUI_WINDOW_MODES) mode = GUI_WINDOW_NORMAL;
 	if (mode == gui_window_mode) return;
+	if (mode != GUI_WINDOW_FULLSCREEN) gui_last_window_mode = mode;
 	gui_window_mode = mode;
 	gui_apply_window_mode();
+}
+
+int gui_get_window_mode()
+{
+	return gui_window_mode;
+}
+
+void gui_toggle_fullscreen()
+{
+	gui_set_window_mode(gui_window_mode == GUI_WINDOW_FULLSCREEN ? gui_last_window_mode : GUI_WINDOW_FULLSCREEN);
 }
 
 void gui_init_sdl()

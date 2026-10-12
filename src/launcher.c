@@ -267,6 +267,7 @@ static void launcherHostGame(Launcher *l) {
   }
 
   result = gamePlay("127.0.0.1", port, l->settings.name);
+  l->settings.display = gui_get_window_mode(); // F11 in the game changes it
 
   for (i=0; i < l->settings.bots; i++) launcherStop(bots[i]);
   launcherStop(server);
@@ -282,6 +283,7 @@ static void launcherJoinGame(Launcher *l) {
   }
   launcherSaveSettings(&l->settings);
   l->running = launcherGameOver(l, gamePlay(l->settings.host, port, l->settings.name));
+  l->settings.display = gui_get_window_mode(); // F11 in the game changes it
 }
 
 /* Menus */
@@ -357,7 +359,7 @@ static void launcherScroll(Launcher *l) {
 }
 
 // Names for the Display choice, in GUI_WINDOW_* order
-static const char *displayNames[GUI_WINDOW_MODES] = { "Windowed", "Fullscreen windowed", "Fullscreen" };
+static const char *displayNames[GUI_WINDOW_MODES] = { "Windowed", "Maximized window", "Fullscreen" };
 
 // Decide what is on the current screen and where each item goes
 static void launcherBuildScreen(Launcher *l) {
@@ -573,6 +575,11 @@ static void launcherHandleEvent(Launcher *l, SDL_Event *event) {
     l->running = 0;
     break;
   case SDL_EVENT_KEY_DOWN:
+    if (event->key.key == SDLK_F11) {
+      if (!event->key.repeat) gui_toggle_fullscreen();
+      l->settings.display = gui_get_window_mode(); // So the Display choice shows it
+      break;
+    }
     launcherHandleKey(l, event->key.key, event->key.mod);
     break;
   case SDL_EVENT_TEXT_INPUT:
@@ -739,6 +746,7 @@ static void launcherDrawAbout() {
     {"Z / X", "Move energy into / out of shields"},
     {"S (hold)", "Scores and game rules"},
     {"M", "Sound and music off / on"},
+    {"F11", "Fullscreen on / off"},
     {"Esc", "Leave the game"},
   };
   char text[LEN];
@@ -754,7 +762,7 @@ static void launcherDrawAbout() {
 
   gui_text_centered(208, 2.0f, COLOR_TITLE, "CONTROLS");
   for (i=0; i < (int)(sizeof(controls) / sizeof(controls[0])); i++) {
-    float y = 236 + i * 18;
+    float y = 234 + i * 17;
     gui_text(300 - gui_text_width(1.0f, controls[i][0]), y, 1.0f, COLOR_FOCUS, controls[i][0]);
     gui_text(316, y, 1.0f, COLOR_TEXT, controls[i][1]);
   }
@@ -777,7 +785,7 @@ static void launcherDraw(Launcher *l) {
     gui_text_centered(70, 3.0f, COLOR_TITLE, "OPTIONS");
     launcherDrawGamepad();
     gui_text_centered(406, 1.0f, COLOR_DIM, "These are yours: they apply to every game you host or join.");
-    gui_text_centered(420, 1.0f, COLOR_DIM, "In a game, M turns all sound off and on.");
+    gui_text_centered(420, 1.0f, COLOR_DIM, "In a game, M turns all sound off and on. F11 switches fullscreen.");
   } else {
     gui_text_centered(l->screen == SCREEN_HOST ? 70 : 44, 3.0f, COLOR_TITLE, l->screen == SCREEN_HOST ? "HOST A GAME" : "JOIN A GAME");
   }

@@ -51,10 +51,13 @@ const char *gui_pad_menu_name(); // "+" on Nintendo controllers, else "Start"
 void gui_init_sdl();
 // How the window fills the screen. Set before gui_init_sdl() to open that way.
 #define GUI_WINDOW_NORMAL     0 // A window that can be resized
-#define GUI_WINDOW_BORDERLESS 1 // Fullscreen windowed: a borderless window covering the screen
-#define GUI_WINDOW_FULLSCREEN 2 // Exclusive fullscreen at the desktop's resolution
+#define GUI_WINDOW_MAXIMIZED  1 // A window filling the screen, with its title bar and the taskbar
+#define GUI_WINDOW_FULLSCREEN 2 // Fullscreen at the desktop's resolution
 #define GUI_WINDOW_MODES      3
 void gui_set_window_mode(int mode);
+int gui_get_window_mode();
+// F11: fullscreen, or back to the window mode it came from
+void gui_toggle_fullscreen();
 SDL_Window *gui_get_window();
 SDL_Renderer *gui_get_renderer();
 
