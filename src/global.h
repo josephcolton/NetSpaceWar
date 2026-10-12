@@ -234,7 +234,6 @@ static inline int versionCompatible(const char *version) {
 #define P_GUI_FLAG_QUIT    4 // Escape: leave the game
 #define P_GUI_FLAG_CLOSE   8 // The window was closed
 
-#define FULLSCREEN         0
 #define UGLY_MISSILE_DRAW_POS_FIX
 
 

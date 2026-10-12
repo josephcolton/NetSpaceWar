@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(NetSpaceWar VERSION 1.2.0
+project(NetSpaceWar VERSION 1.2.1
         DESCRIPTION "A multiplayer network clone of Spacewar!"
         HOMEPAGE_URL "https://github.com/josephcolton/NetSpaceWar"
         LANGUAGES C)

@@ -39,6 +39,7 @@ typedef struct {
   int bots;
   int options[OPTION_COUNT];  // Game rules passed to the server
   int sound, music;           // This player's volumes, 0 to AUDIO_VOLUME_MAX
+  int display;                // GUI_WINDOW_*: windowed, fullscreen windowed or fullscreen
 } LauncherSettings;
 
 typedef enum { SCREEN_MAIN, SCREEN_HOST, SCREEN_JOIN, SCREEN_SETTINGS, SCREEN_ABOUT, SCREEN_OPTIONS } LauncherScreen;
@@ -61,6 +62,7 @@ typedef struct {
   int minValue, maxValue, step;
   int wrap;               // Past one end goes around to the other
   const char *help;       // Game options: shown under the menu while focused
+  const char **names;     // ITEM_CHOICE: shown instead of the number, if set
   int hidden;             // Scrolled out of view
   int game;               // ITEM_GAME: which found game
   SDL_FRect box;          // Where it is on screen, for the mouse
@@ -109,6 +111,7 @@ static void launcherLoadSettings(LauncherSettings *settings) {
   settings->bots = 2;
   settings->sound = 8;
   settings->music = 5;
+  settings->display = GUI_WINDOW_NORMAL;
   gameOptionsReset(settings->options);
 
   path = launcherSettingsPath();
@@ -124,6 +127,7 @@ static void launcherLoadSettings(LauncherSettings *settings) {
     if (strcmp(line, "bots") == 0) settings->bots = atoi(value);
     if (strcmp(line, "sound") == 0) settings->sound = atoi(value);
     if (strcmp(line, "music") == 0) settings->music = atoi(value);
+    if (strcmp(line, "display") == 0) settings->display = atoi(value);
     if ((option = gameOptionFind(line)) >= 0) settings->options[option] = atoi(value);
   }
   fclose(file);
@@ -131,6 +135,7 @@ static void launcherLoadSettings(LauncherSettings *settings) {
   if (settings->bots > LAUNCHER_MAX_BOTS) settings->bots = LAUNCHER_MAX_BOTS;
   if (settings->sound < 0 || settings->sound > AUDIO_VOLUME_MAX) settings->sound = 8;
   if (settings->music < 0 || settings->music > AUDIO_VOLUME_MAX) settings->music = 5;
+  if (settings->display < 0 || settings->display >= GUI_WINDOW_MODES) settings->display = GUI_WINDOW_NORMAL;
   for (i=0; i < OPTION_COUNT; i++) settings->options[i] = gameOptionClamp(i, settings->options[i]);
   gameOptionsFix(settings->options);
 }
@@ -142,7 +147,7 @@ static void launcherSaveSettings(const LauncherSettings *settings) {
   if (path == NULL || (file = fopen(path, "w")) == NULL) return;
   fprintf(file, "name=%s\nhost=%s\nport=%s\nbots=%d\n",
           settings->name, settings->host, settings->port, settings->bots);
-  fprintf(file, "sound=%d\nmusic=%d\n", settings->sound, settings->music);
+  fprintf(file, "sound=%d\nmusic=%d\ndisplay=%d\n", settings->sound, settings->music, settings->display);
   for (i=0; i < OPTION_COUNT; i++) fprintf(file, "%s=%d\n", gameOptions[i].name, settings->options[i]);
   fclose(file);
 }
@@ -351,6 +356,9 @@ static void launcherScroll(Launcher *l) {
   }
 }
 
+// Names for the Display choice, in GUI_WINDOW_* order
+static const char *displayNames[GUI_WINDOW_MODES] = { "Windowed", "Fullscreen windowed", "Fullscreen" };
+
 // Decide what is on the current screen and where each item goes
 static void launcherBuildScreen(Launcher *l) {
   int i, scrolling;
@@ -379,6 +387,7 @@ static void launcherBuildScreen(Launcher *l) {
   } else if (l->screen == SCREEN_OPTIONS) {
     launcherAddChoice(l, "Sound volume", &l->settings.sound, 0, AUDIO_VOLUME_MAX)->wrap = 0;
     launcherAddChoice(l, "Music volume", &l->settings.music, 0, AUDIO_VOLUME_MAX)->wrap = 0;
+    launcherAddChoice(l, "Display", &l->settings.display, 0, GUI_WINDOW_MODES - 1)->names = displayNames;
     launcherAddButton(l, "Back", ACTION_BACK);
   } else {
     launcherAddText(l, "Your name", l->settings.name, USERNAME_MAX, 0);
@@ -395,7 +404,7 @@ static void launcherBuildScreen(Launcher *l) {
   // LAUNCHER_LIST_TOP and LAUNCHER_LIST_BOTTOM and its buttons stay below.
   scrolling = (l->screen == SCREEN_SETTINGS);
   y = (l->screen == SCREEN_MAIN) ? 220 : (l->screen == SCREEN_ABOUT) ? 392 : scrolling ? LAUNCHER_LIST_TOP :
-      (l->screen == SCREEN_JOIN) ? 96 : 124;
+      (l->screen == SCREEN_JOIN) ? 96 : (l->screen == SCREEN_OPTIONS) ? 104 : 124;
   for (i=0; i < l->itemCount; i++) {
     LauncherItem *item = &l->items[i];
     item->hidden = 0;
@@ -681,6 +690,7 @@ static void launcherDrawItem(Launcher *l, int index) {
   } else {
     // Game options may show a name (None, Light...) instead of the number
     if (item->help) snprintf(text, LEN, "<  %s  >", gameOptionText(item->value - l->settings.options, *item->value));
+    else if (item->names) snprintf(text, LEN, "<  %s  >", item->names[*item->value]);
     else snprintf(text, LEN, "<  %d  >", *item->value);
     // Long names ("Medium (1000)") get smaller text to fit the box
     scale = 2.0f;
@@ -711,9 +721,9 @@ static void launcherDrawGamepad() {
   int i;
 
   snprintf(text, LEN, name ? "Gamepad: %.60s" : "No gamepad connected", name);
-  gui_text_centered(270, 1.0f, name ? COLOR_TEXT : COLOR_DIM, text);
+  gui_text_centered(276, 1.0f, name ? COLOR_TEXT : COLOR_DIM, text);
   for (i=0; i < (int)(sizeof(controls) / sizeof(controls[0])); i++) {
-    float y = 288 + i * 14;
+    float y = 292 + i * 14;
     gui_text(300 - gui_text_width(1.0f, controls[i][0]), y, 1.0f, name ? COLOR_FOCUS : COLOR_DIM, controls[i][0]);
     gui_text(316, y, 1.0f, name ? COLOR_TEXT : COLOR_DIM, controls[i][1]);
   }
@@ -822,6 +832,7 @@ int launcherRun() {
   netLocalAddress(l.localAddress, sizeof(l.localAddress));
   l.running = 1;
 
+  gui_set_window_mode(l.settings.display);
   gui_init_sdl();
   SDL_StartTextInput(gui_get_window());
   launcherShowScreen(&l, SCREEN_MAIN);
@@ -849,6 +860,7 @@ int launcherRun() {
 
       // A blip for a new screen, a tick for moving or changing a value
       audioSetVolume(l.settings.sound, l.settings.music);
+      gui_set_window_mode(l.settings.display);
       if (l.screen != oldScreen) audioPlay(SOUND_MENU_SELECT);
       else if (l.focus != oldFocus) audioPlay(SOUND_MENU_MOVE);
       else if (l.items[l.focus].kind == ITEM_CHOICE && *l.items[l.focus].value != oldValue) audioPlay(SOUND_MENU_MOVE);

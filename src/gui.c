@@ -591,14 +591,47 @@ int gui_get_input(double *angle_change, double *accel_amount, int *energy_to_shi
 }
 
 
+static int gui_window_mode = GUI_WINDOW_NORMAL;
+
+static void gui_apply_window_mode()
+{
+	SDL_DisplayMode mode;
+	const SDL_DisplayMode *desktop;
+	SDL_DisplayID display;
+
+	if (gui_window == NULL) return;
+	if (gui_window_mode == GUI_WINDOW_NORMAL) {
+		SDL_SetWindowFullscreen(gui_window, false);
+		return;
+	}
+	// A NULL mode is fullscreen windowed. Exclusive needs a real display mode,
+	// so use the one nearest the desktop's (the same size, without the compositor).
+	display = SDL_GetDisplayForWindow(gui_window);
+	desktop = SDL_GetDesktopDisplayMode(display);
+	if (gui_window_mode == GUI_WINDOW_FULLSCREEN && desktop != NULL &&
+	    SDL_GetClosestFullscreenDisplayMode(display, desktop->w, desktop->h, desktop->refresh_rate, false, &mode)) {
+		SDL_SetWindowFullscreenMode(gui_window, &mode);
+	} else {
+		SDL_SetWindowFullscreenMode(gui_window, NULL);
+	}
+	SDL_SetWindowFullscreen(gui_window, true);
+}
+
+void gui_set_window_mode(int mode)
+{
+	if (mode < 0 || mode >= GUI_WINDOW_MODES) mode = GUI_WINDOW_NORMAL;
+	if (mode == gui_window_mode) return;
+	gui_window_mode = mode;
+	gui_apply_window_mode();
+}
+
 void gui_init_sdl()
 {
-	SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE;
+	// Hidden until it is in the chosen window mode, so it doesn't flash up as a window first
+	SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN;
 
 	if (gui_renderer != NULL) return;
 	initalized_sdl=1;
-
-	if (FULLSCREEN) flags |= SDL_WINDOW_FULLSCREEN;
 
 	if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD) ||
 	    !SDL_CreateWindowAndRenderer("NetSpaceWar", GUI_SCREEN_W, GUI_SCREEN_H, flags, &gui_window, &gui_renderer))
@@ -611,6 +644,8 @@ void gui_init_sdl()
 	// Draw at 640x480 and let SDL scale that to whatever size the window is
 	SDL_SetRenderLogicalPresentation(gui_renderer, GUI_SCREEN_W, GUI_SCREEN_H, SDL_LOGICAL_PRESENTATION_LETTERBOX);
 	SDL_SetRenderVSync(gui_renderer, 1);
+	gui_apply_window_mode();
+	SDL_ShowWindow(gui_window);
 	planetcolor=gui_makecol(140,140,100);
 	audioInit();
 }

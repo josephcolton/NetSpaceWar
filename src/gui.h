@@ -49,6 +49,12 @@ const char *gui_pad_role_name(int role);
 const char *gui_pad_menu_name(); // "+" on Nintendo controllers, else "Start"
 // Open the window. Safe to call more than once.
 void gui_init_sdl();
+// How the window fills the screen. Set before gui_init_sdl() to open that way.
+#define GUI_WINDOW_NORMAL     0 // A window that can be resized
+#define GUI_WINDOW_BORDERLESS 1 // Fullscreen windowed: a borderless window covering the screen
+#define GUI_WINDOW_FULLSCREEN 2 // Exclusive fullscreen at the desktop's resolution
+#define GUI_WINDOW_MODES      3
+void gui_set_window_mode(int mode);
 SDL_Window *gui_get_window();
 SDL_Renderer *gui_get_renderer();
 
