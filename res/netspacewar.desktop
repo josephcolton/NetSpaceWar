@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=NetSpaceWar
+Comment=Multiplayer space combat game
+Exec=NetSpaceWar
+Icon=netspacewar
+Terminal=false
+Categories=Game;ArcadeGame;

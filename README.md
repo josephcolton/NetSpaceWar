@@ -37,6 +37,18 @@ sudo apt install build-essential cmake libx11-dev libxext-dev libxrandr-dev libx
 
 To build only the server and AI (for example on a headless machine), configure with `-DNSW_BUILD_CLIENT=OFF`.
 
+### Install on Linux
+
+After building, install the programs and application menu icon system-wide:
+
+```sh
+sudo cmake --install build
+```
+
+This installs into `/usr/local` by default. Open **Show Applications** on Ubuntu
+and search for **NetSpaceWar**. You can right-click its icon to pin it to the dash.
+With CMake's Makefile generator, `sudo make -C build install` does the same thing.
+
 ### Windows
 
 The Windows programs are built with MinGW-w64, cross-compiled from Linux (`sudo apt install mingw-w64`, or [llvm-mingw](https://github.com/mstorsjo/llvm-mingw)):

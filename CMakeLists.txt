@@ -110,6 +110,12 @@ endforeach()
 install(FILES README.md DESTINATION ${NSW_DOC_DIR} RENAME README.txt)
 install(FILES LICENSE DESTINATION ${NSW_DOC_DIR} RENAME LICENSE.txt)
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND TARGET NetSpaceWar)
+  install(FILES res/netspacewar.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+  install(FILES res/netspacewar.png
+          DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/256x256/apps)
+endif()
+
 set(CPACK_VERBATIM_VARIABLES ON)
 set(CPACK_PACKAGE_NAME "NetSpaceWar")
 set(CPACK_PACKAGE_VENDOR "${NSW_VENDOR}")
